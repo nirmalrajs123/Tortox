@@ -1,0 +1,57 @@
+--- .map calls ---
+Line 105: setCaseSpecsList(res.data.data.map((item) => ({
+  +1: id: item.id,
+Line 180: const previews = filesArray.map(file => URL.createObjectURL(file)); // Make thumbnail thumbs static previews trigger framing
+  +1: setVariantImages([...variantImages, ...previews]); // Append triggers flawless flawless flawlessly
+Line 222: .map((spec, idx) => ({
+  +1: specification_name: spec.key.trim(),
+Line 233: formData.append('combinations', JSON.stringify(combinations.map(c => ({
+  +1: Color: c.Color, Size: c.Size, Style: c.Style
+Line 257: setCaseSpecsList(caseSpecsList.map(s => ({ ...s, value: '' })));
+  +1: } catch (err) {
+Line 302: {['General', 'Specifications', 'Features', 'Combinations'].map((t) => (
+  +1: <button key={t} type="button" onClick={() => setActiveTab(t)} style={{ padding: '8px 16px', background: activeTab === t ? 'linear-gradient(135deg, #e11919 0%, #900a0a 100%)' : 'none', color: activeTab === t ? '#fff' : '#6b7280', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700, transition: 'all 0.2s', boxShadow: activeTab === t ? '0 4px 12px rgba(225,25,25,0.2)' : 'none' }}>{t}</button>
+Line 312: {categories.map(cat => (
+  +1: <option key={cat.id} value={cat.id}>{cat.category_name}</option>
+Line 350: {['550W', '650W', '750W', '850W', '1050W', '1250W'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
+  +1: </select>
+Line 357: {['Normal', '80 Plus White', '80 Plus Gold', '80 Plus Platinum', '80 Plus Titanium'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
+  +1: </select>
+Line 364: {['Full Modular', 'Non Modular'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
+  +1: </select>
+Line 377: {['120mm', '140mm', '240mm', '280mm', '360mm', '420mm', '480mm'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
+  +1: </select>
+Line 384: {['ARGB', 'Non-RGB'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
+  +1: </select>
+Line 394: {['No Display', 'Digital Display', 'Customizable Display'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
+  +1: </select>
+Line 401: {['150-200', '200-250', '250-300', '300-350', '350+'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
+  +1: </select>
+Line 415: {['Single', 'Dual'].map((t, idx) => (<option key={idx} value={t}>{t}</option>))}
+  +1: </select>
+Line 422: {['90mm', '120mm'].map((t, idx) => (<option key={idx} value={t}>{t}</option>))}
+  +1: </select>
+Line 429: {['RGB', 'ARGB', 'Non RGB'].map((t, idx) => (<option key={idx} value={t}>{t}</option>))}
+  +1: </select>
+Line 439: {['No Display', 'Digital Display'].map((t, idx) => (<option key={idx} value={t}>{t}</option>))}
+  +1: </select>
+Line 446: {['50-100', '100-150', '150-200', '200-250', '250+'].map((t, idx) => (<option key={idx} value={t}>{t}</option>))}
+  +1: </select>
+Line 453: {['2', '4', '6'].map((t, idx) => (<option key={idx} value={t}>{t}</option>))}
+  +1: </select>
+Line 467: {['E-ATX', 'ATX', 'M-ATX', 'ITX'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
+  +1: </select>
+Line 474: {['120MM', '240MM', '280MM', '360MM', '480MM'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
+  +1: </select>
+Line 484: {['Tempered Glass', 'Mesh Panel'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
+  +1: </select>
+Line 491: {['No Fans', '3 ARGB Fans', '4 ARGB Fans', '5 ARGB Fans', '6 ARGB Fans', '7 ARGB Fans'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
+  +1: </select>
+Line 501: {['No PSU', '650 Watts', '700 Watts', '850 Watts', '1050 Watts'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
+  +1: </select>
+Line 508: {['No Display', 'Customizable Display', 'Digital Display'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
+  +1: </select>
+Line 529: {features.map((feat, index) => (
+  +1: <div key={index} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+Line 548: {caseSpecsList.map((item) => (
+  +1: <Reorder.Item key={item.id} value={item} style={{ background: '#ffffff', padding: '10px', borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)', cursor: 'grab' }} whileDrag={{ scale: 1.02, boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}>

@@ -1,0 +1,7 @@
+--- Specifications declarations ---
+Line 332: <div style={{ display: activeTab === 'Specifications' ? 'flex' : 'none', flexDirection: 'column', gap: '1.2rem' }}>
+Line 569: <div style={{ display: activeTab === 'Specifications' ? 'flex' : 'none', flexDirection: 'column', gap: '1.2rem' }}>
+
+--- Categories declarations ---
+Line 333: {category && (
+Line 333 starts Category conditional

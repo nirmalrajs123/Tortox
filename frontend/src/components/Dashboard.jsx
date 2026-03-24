@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, Users, Settings, LogOut, PlusCircle, Eye, X } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Users, Settings, LogOut, PlusCircle, Edit, X, Trash2 } from 'lucide-react';
 import { productService } from '../services/product'; // ➕ Use productService
 import logo from '../assets/logo.png';
 import AddProductModal from './product'; // ➕ Import Extracted Modal
@@ -48,10 +48,17 @@ const Dashboard = () => {
         navigate('/login');
     };
 
-    const handleView = (id) => {
-        const prod = products.find(p => p.id === id);
-        setSelectedProduct(prod);
-        setShowViewModal(true);
+    const handleEdit = async (id) => {
+        try {
+            const res = await productService.getById(id);
+            if (res.data && res.data.success) {
+                setSelectedProduct(res.data.data);
+                setShowAddForm(true);
+            }
+        } catch (e) {
+            console.error('Failed to load product for editing', e);
+            alert('Failed to load full product details');
+        }
     };
 
     if (!user) return null;
@@ -136,8 +143,9 @@ const Dashboard = () => {
                         {/* 🛠️ Extracted Add Product Modal overlay support trigger framing */}
                         <AddProductModal
                             isOpen={showAddForm}
-                            onClose={() => setShowAddForm(false)}
+                            onClose={() => { setShowAddForm(false); setSelectedProduct(null); }}
                             onSuccess={loadProducts}
+                            productToEdit={selectedProduct}
                         />
 
                         {/* 👁️ Product View Modal flawless flawlessly trigger */}
@@ -178,30 +186,45 @@ const Dashboard = () => {
                                 </motion.div>
                             </div>
                         )}
+                           <style>{`
+                            .hover-row { transition: all 0.22s ease-out; }
+                            .hover-row:hover { background-color: rgba(225, 25, 25, 0.015) !important; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
+                        `}</style>
 
-                        {/* Table layout viewing indices framing support adequately accurately securely properly */}
-                        <div style={{ background: '#ffffff', borderRadius: '14px', boxShadow: '0 4px 15px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                                <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                                    <tr>{['Product ID', 'Modal No', 'Modal Name', 'Product Name', 'View'].map((head) => (<th key={head} style={{ padding: '12px 20px', fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', textTransform: 'uppercase' }}>{head}</th>))}</tr>
-                                </thead>
-                                <tbody>
-                                    {Array.isArray(products) && products.map((prod) => (
-                                        <tr key={prod.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                            <td style={{ padding: '14px 20px', color: '#6b7280', fontSize: '0.85rem' }}>{prod.id}</td>
-                                            <td style={{ padding: '14px 20px', fontWeight: 600, color: '#1e293b', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                {prod.modal}
-                                            </td>
-                                            <td style={{ padding: '14px 20px', color: '#111827', fontWeight: 600, fontSize: '0.85rem' }}>${prod.modal_name}</td>
-                                            <td style={{ padding: '14px 20px', color: '#6b7280', fontSize: '0.85rem', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '300px' }}>{prod.product_name}</td>
-                                            <td style={{ padding: '14px 20px', color: '#6b7280', fontSize: '0.85rem', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '300px' }}>
-                                                <button onClick={() => handleView(prod.id)} style={{ padding: '8px 16px', borderRadius: '8px', background: '#e11919', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600 }}><Eye size={16} /> View</button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                        {Array.isArray(products) && products.length === 0 ? (
+                            <div style={{ background: '#ffffff', borderRadius: '16px', padding: '5rem 2rem', textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: 'rgba(225, 25, 25, 0.05)', color: '#e11919', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.2rem' }}>
+                                    <ShoppingBag size={28} />
+                                </div>
+                                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#111827', marginBottom: '6px' }}>No Products Setup</h3>
+                                <p style={{ fontSize: '0.85rem', color: '#6b7280', maxWidth: '300px', lineHeight: 1.5, marginBottom: '1.5rem' }}>Your product catalog is currently empty. Start building your portfolio today.</p>
+                                <button onClick={() => setShowAddForm(true)} style={{ padding: '8px 16px', borderRadius: '8px', background: '#e11919', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 600 }}><PlusCircle size={16} /> Add First Product </button>
+                            </div>
+                        ) : (
+                            <div style={{ background: '#ffffff', borderRadius: '14px', boxShadow: '0 4px 15px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                    <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                                        <tr>{['Product ID', 'Modal No', 'Modal Name', 'Product Name', 'Actions'].map((head) => (<th key={head} style={{ padding: '12px 20px', fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', textTransform: 'uppercase' }}>{head}</th>))}</tr>
+                                    </thead>
+                                    <tbody>
+                                        {products.map((prod) => (
+                                            <tr key={prod.id} className="hover-row" style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                <td style={{ padding: '14px 20px', color: '#6b7280', fontSize: '0.85rem' }}>{prod.id}</td>
+                                                <td style={{ padding: '14px 20px', fontWeight: 600, color: '#1e293b', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    {prod.modal}
+                                                </td>
+                                                <td style={{ padding: '14px 20px', color: '#111827', fontWeight: 600, fontSize: '0.85rem' }}>{prod.modal_name}</td>
+                                                <td style={{ padding: '14px 20px', color: '#6b7280', fontSize: '0.85rem', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '280px' }}>{prod.product_name}</td>
+                                                <td style={{ padding: '14px 20px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                    <button onClick={() => handleEdit(prod.id)} style={{ padding: '6px 12px', borderRadius: '6px', background: 'rgba(225,25,25,0.08)', color: '#e11919', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', fontWeight: 600 }}><Edit size={14} /> Edit</button>
+                                                    <button onClick={async () => { if(window.confirm("Delete product?")) { try { await productService.delete(prod.id); loadProducts(); } catch(e){ console.error(e); } } }} style={{ padding: '6px 12px', borderRadius: '6px', background: '#fee2e2', color: '#ef4444', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', fontWeight: 600 }}><Trash2 size={14} /> Delete</button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </>
                 )}
             </main>

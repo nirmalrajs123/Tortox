@@ -4,7 +4,7 @@ import { X, Plus, Trash2 } from 'lucide-react';
 import { productService } from '../services/product';
 import { categoryService } from '../services/category';
 
-const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
+const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
     // 📝 Expanded Form States
     const [activeTab, setActiveTab] = useState('General');
     const [category, setCategory] = useState('');
@@ -124,21 +124,12 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
                 try {
                     const res = await productService.getSpecLabels(category);
                     if (res.data.success && res.data.data.length > 0) {
-                        let savedSpecs = {};
-                        if (productToEdit && productToEdit.specs) {
-                            try { savedSpecs = typeof productToEdit.specs === 'string' ? JSON.parse(productToEdit.specs) : productToEdit.specs; } catch (e) { }
-                        }
-
-                        setCaseSpecsList(res.data.data.map((item) => {
-                            const genKey = item.spec_label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-                            const match = savedSpecs[genKey] || savedSpecs[item.id] || { value: '' };
-                            return {
-                                id: item.id,
-                                key: genKey,
-                                label: item.spec_label,
-                                value: match.value || ''
-                            };
-                        }));
+                        setCaseSpecsList(res.data.data.map((item) => ({
+                            id: item.id,
+                            key: item.spec_label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
+                            label: item.spec_label,
+                            value: ''
+                        })));
                     }
                 } catch (err) {
                     console.error('Failed to load spec labels:', err);
@@ -146,48 +137,7 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
             };
             fetchSpecs();
         }
-    }, [category, productToEdit]);
-
-    useEffect(() => {
-        if (productToEdit && isOpen) {
-            setCategory(productToEdit.category_id || '');
-            setName(productToEdit.product_name || '');
-            setModelNo(productToEdit.modal || '');
-            setModelName(productToEdit.modal_name || '');
-            setPrice(productToEdit.price?.toString() || '');
-            setDescription(productToEdit.product_description || '');
-            setMbCompat(productToEdit.mb_compat || '');
-            setCoolerCompat(productToEdit.cooler_compat || '');
-            setPanelType(productToEdit.panel_type || '');
-            setInstalledFans(productToEdit.installed_fans || '');
-            setInstalledPsu(productToEdit.installed_psu || '');
-
-            if (productToEdit.product_features) {
-                const feats = productToEdit.product_features.split('\n');
-                if (feats.length > 0) setFeatures(feats);
-            }
-
-            if (productToEdit.specs) {
-                try {
-                    const spc = typeof productToEdit.specs === 'string' ? JSON.parse(productToEdit.specs) : productToEdit.specs;
-                    if (spc.caseDisplay) setCaseDisplay(spc.caseDisplay);
-                } catch (e) { }
-            }
-
-            if (productToEdit.combinations && productToEdit.combinations.length > 0) {
-                setCombinations(productToEdit.combinations);
-                const hasColor = productToEdit.combinations.some(c => c.Color);
-                const hasSize = productToEdit.combinations.some(c => c.Size);
-                const hasStyle = productToEdit.combinations.some(c => c.Style);
-                setSelectedVariants({ Color: !!hasColor, Size: !!hasSize, Style: !!hasStyle });
-            }
-        } else if (isOpen && !productToEdit) {
-            setCategory(''); setName(''); setModelNo(''); setModelName(''); setPrice(''); setDescription('');
-            setMbCompat(''); setCoolerCompat(''); setPanelType(''); setInstalledFans(''); setInstalledPsu(''); setCaseDisplay('');
-            setFeatures(['']);
-        }
-    }, [productToEdit, isOpen]);
-
+    }, [category]);
     // Handlers list updates trigger safely
     const handleSaveSpecLabel = async () => {
         if (!newLabelTitle.trim()) return alert("Please type a label title!");
@@ -324,13 +274,8 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
         });
 
         try {
-            if (productToEdit) {
-                await productService.update(productToEdit.id, formData);
-                setStatusMessage('Product updated successfully!');
-            } else {
-                await productService.create(formData);
-                setStatusMessage('Product added successfully!');
-            }
+            const res = await productService.create(formData);
+            setStatusMessage('Product added successfully!');
             setStatusType('success');
             setTimeout(() => { onSuccess(); onClose(); setStatusMessage(''); }, 1500); // Wait status view
 
@@ -373,7 +318,7 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
                         style={modalStyle}
                     >
                         <div style={headerStyle}>
-                            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#111827' }}>{productToEdit ? 'Edit Product' : 'Add New Product'}</h3>
+                            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#111827' }}>Add New Product</h3>
                             <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer' }}><X size={20} /></button>
                         </div>
 
@@ -746,7 +691,7 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
                                         setActiveTab(tabs[tabs.indexOf(activeTab) + 1]);
                                     }} style={{ padding: '14px 32px', background: '#1e293b', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px', transition: 'all 0.2s' }}>Next Step</button>
                                 ) : (
-                                    <button type="submit" className="btn-glowing" style={{ padding: '14px 32px', background: 'linear-gradient(135deg, #e11919 0%, #900a0a 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', boxShadow: '0 8px 24px rgba(225, 25, 25, 0.2)', textTransform: 'uppercase', letterSpacing: '1px', transition: 'all 0.2s' }}>{productToEdit ? 'Update Product' : 'Submit Product'}</button>
+                                    <button type="submit" className="btn-glowing" style={{ padding: '14px 32px', background: 'linear-gradient(135deg, #e11919 0%, #900a0a 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', boxShadow: '0 8px 24px rgba(225, 25, 25, 0.2)', textTransform: 'uppercase', letterSpacing: '1px', transition: 'all 0.2s' }}>Submit Product</button>
                                 )}
                             </div>
                         </form>

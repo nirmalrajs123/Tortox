@@ -99,7 +99,17 @@ const initializeDatabase = async () => {
             id SERIAL PRIMARY KEY,
             category_id INTEGER NOT NULL,
             spec_label TEXT NOT NULL,
-            spec_label_deleted BOOLEAN DEFAULT false
+            is_deleted BOOLEAN DEFAULT false
+        );
+    `;
+
+    // 9. Create features Table for Dashboard CMS
+    const createFeaturesQuery = `
+        CREATE TABLE IF NOT EXISTS features (
+            id SERIAL PRIMARY KEY,
+            product_id INTEGER NOT NULL,
+            features TEXT NOT NULL,
+            is_deleted BOOLEAN DEFAULT false
         );
     `;
 
@@ -109,10 +119,10 @@ const initializeDatabase = async () => {
         await pool.query(createUsersQuery);
         await pool.query(createCategorysQuery);
         await pool.query(createSpecificationsQuery);
-        await pool.query(createProductImagesQuery);
         await pool.query(createVariantsQuery);
         await pool.query(createVariantImagesQuery);
         await pool.query(createSpecLabelQuery);
+        await pool.query(createFeaturesQuery);
 
         // Seeding Products
 
