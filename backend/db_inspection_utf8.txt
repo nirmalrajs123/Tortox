@@ -1,0 +1,5 @@
+﻿[dotenv@17.3.1] injecting env (6) from .env -- tip: ≡ƒ¢í∩╕Å auth for agents: https://vestauth.com
+Successfully connected to the PostgreSQL database.
+Tables: ["features","spec_label","categorys","variant_images","variants","users","specifications","product_details","product_images"]
+Categorys Columns: [{"column_name":"id","data_type":"integer"},{"column_name":"parent_id","data_type":"integer"},{"column_name":"category_name","data_type":"text"}]
+Spec Label Columns: [{"column_name":"id","data_type":"integer"},{"column_name":"category_id","data_type":"integer"},{"column_name":"spec_label","data_type":"text"},{"column_name":"is_deleted","data_type":"boolean"}]

@@ -1,39 +1,59 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Globe, HelpCircle, ChevronDown } from 'lucide-react';
+import { Search, Globe, HelpCircle, ChevronDown, Moon, Sun } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { categoryService } from '../services/category';
 import logo from '../assets/logo.png';
 
-const navItems = [
-    { title: 'Products', items: ['Chassis / Case', 'Liquid Coolers', 'ARGB Fans', 'Power Supply', 'Gaming Mice'] },
-    { title: 'About', items: ['Company Profile', 'News & Events', 'Quality & Design'] },
-    { title: 'Community', items: ['User Forums', 'Wallpaper', 'Newsletter'] },
-    { title: 'Support', items: ['Downloads', 'Warranty RMA', 'Tech Help'] },
-    { title: 'Contact', items: ['Global Offices', 'Business Support'] }
-];
-
-const Navbar = () => {
+const Navbar = ({ toggleTheme, theme }) => {
     const navigate = useNavigate();
     const [hoveredItem, setHoveredItem] = useState(null);
+    const [categories, setCategories] = useState([]);
+
+    useEffect(() => {
+        const fetchCategories = async () => {
+            try {
+                const res = await categoryService.getAll();
+                setCategories(res.data?.data || []);
+            } catch (err) {
+                console.error("Navbar category fetch error:", err);
+            }
+        };
+        fetchCategories();
+    }, []);
+
+    const navItems = [
+        { 
+            title: 'Products', 
+            items: categories.length > 0 
+                ? categories.map(c => c.category_name) 
+                : ['Chassis / Case', 'Liquid Coolers', 'ARGB Fans', 'Power Supply', 'Gaming Mice'] 
+        },
+        { title: 'About', items: ['Company Profile', 'News & Events', 'Quality & Design'] },
+        { title: 'Community', items: ['User Forums', 'Wallpaper', 'Newsletter'] },
+        { title: 'Support', items: ['Downloads', 'Warranty RMA', 'Tech Help'] },
+        { title: 'Contact', items: ['Global Offices', 'Business Support'] }
+    ];
 
     return (
-        <motion.nav 
+        <motion.nav
             initial={{ y: -50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.6 }}
             style={{
                 position: 'fixed', top: 0, left: 0, width: '100%', zIndex: 100,
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '1.2rem 4rem', backgroundColor: '#ffffff',
-                borderBottom: '1px solid #e5e7eb', boxSizing: 'border-box'
+                padding: '1.2rem 4rem', backgroundColor: 'var(--bg-secondary)',
+                borderBottom: '1px solid var(--border)', boxSizing: 'border-box',
+                transition: 'all 0.3s ease'
             }}
         >
             {/* Logo Group */}
-            <div 
-                style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} 
+            <div
+                style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
                 onClick={() => navigate('/')}
             >
-                <img src={logo} alt="Tortox Logo" style={{ height: '35px', width: 'auto', objectFit: 'contain' }} />
+                <img src={logo} alt="Tortox Logo" style={{ height: '35px', width: 'auto', objectFit: 'contain', filter: theme === 'dark' ? 'invert(1)' : 'none' }} />
             </div>
 
             {/* Nav Links - Centered with interactive Dropdown triggers indices framing appropriately */}
@@ -41,17 +61,17 @@ const Navbar = () => {
                 display: 'flex', gap: '2.5rem', listStyle: 'none', margin: 0, padding: 0, position: 'relative'
             }}>
                 {navItems.map((item) => (
-                    <li 
+                    <li
                         key={item.title}
                         onMouseEnter={() => setHoveredItem(item.title)}
                         onMouseLeave={() => setHoveredItem(null)}
                         style={{ position: 'relative', padding: '10px 0' }}
                     >
-                        <motion.div 
-                            whileHover={{ y: -1, color: '#111827' }}
+                        <motion.div
+                            whileHover={{ y: -1, color: 'var(--accent-primary)' }}
                             style={{
                                 display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer',
-                                color: hoveredItem === item.title ? '#111827' : '#4b5563',
+                                color: hoveredItem === item.title ? 'var(--accent-primary)' : 'var(--text-main)',
                                 fontSize: '0.9rem', fontWeight: 500, letterSpacing: '0.2px', transition: 'color 0.2s'
                             }}
                         >
@@ -74,19 +94,20 @@ const Navbar = () => {
                                     transition={{ duration: 0.2, ease: 'easeOut' }}
                                     style={{
                                         position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
-                                        background: '#ffffff', boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
+                                        background: 'var(--bg-secondary)', boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
                                         borderRadius: '12px', padding: '12px 10px',
-                                        minWidth: '180px', border: '1px solid #f1f5f9', zIndex: 110, marginTop: '4px'
+                                        minWidth: '180px', border: '1px solid var(--border)', zIndex: 110, marginTop: '4px'
                                     }}
                                 >
                                     {item.items.map((sub, idx) => (
                                         <motion.div
                                             key={idx}
-                                            whileHover={{ background: '#f8fafc', color: '#ff1a1a', x: 4 }}
+                                            onClick={() => navigate('/products')}
+                                            whileHover={{ background: 'var(--bg-primary)', color: 'var(--accent-primary)', x: 4 }}
                                             transition={{ duration: 0.15 }}
                                             style={{
                                                 padding: '8px 14px', borderRadius: '8px', fontSize: '0.85rem',
-                                                color: '#4b5563', cursor: 'pointer', fontWeight: 500,
+                                                color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 500,
                                                 whiteSpace: 'nowrap'
                                             }}
                                         >
@@ -101,36 +122,38 @@ const Navbar = () => {
             </ul>
 
             {/* Actions Icons - Right side */}
-            <div style={{ display: 'flex', gap: '1.8rem', alignItems: 'center' }}>
-                <motion.button 
-                    whileHover={{ scale: 1.1, color: '#111827' }} 
-                    style={{ background: 'none', border: 'none', color: '#4b5563', cursor: 'pointer', padding: 0 }}
+            <div style={{ display: 'flex', gap: '1.2rem', alignItems: 'center' }}>
+                <motion.button
+                    onClick={toggleTheme}
+                    whileHover={{ scale: 1.1, color: 'var(--accent-primary)' }}
+                    whileTap={{ scale: 0.9 }}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+                >
+                    {theme === 'light' ? <Moon size={21} strokeWidth={2} /> : <Sun size={21} strokeWidth={2} />}
+                </motion.button>
+
+                <motion.button
+                    whileHover={{ scale: 1.1, color: 'var(--accent-primary)' }}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', padding: 0 }}
                 >
                     <Search size={21} strokeWidth={2} />
                 </motion.button>
-                
-                <motion.button 
-                    whileHover={{ scale: 1.1, color: '#111827' }} 
-                    style={{ background: 'none', border: 'none', color: '#4b5563', cursor: 'pointer', padding: 0 }}
+
+                <motion.button
+                    whileHover={{ scale: 1.1, color: 'var(--accent-primary)' }}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', padding: 0 }}
                 >
                     <Globe size={21} strokeWidth={2} />
                 </motion.button>
-                
-                <motion.button 
-                    whileHover={{ scale: 1.1, color: '#111827' }} 
-                    style={{ background: 'none', border: 'none', color: '#4b5563', cursor: 'pointer', padding: 0 }}
-                >
-                    <HelpCircle size={21} strokeWidth={2} />
-                </motion.button>
 
-                <motion.button 
+                <motion.button
                     onClick={() => navigate('/login')}
-                    whileHover={{ scale: 1.05, background: '#e11919' }}
+                    whileHover={{ scale: 1.05, background: 'var(--accent-primary)' }}
                     whileTap={{ scale: 0.98 }}
                     style={{
-                        padding: '7px 18px', background: '#111827', color: '#ffffff',
+                        padding: '7px 18px', background: 'var(--text-main)', color: 'var(--bg-secondary)',
                         border: 'none', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 700,
-                        cursor: 'pointer', marginLeft: '0.4rem', transition: 'background 0.2s'
+                        cursor: 'pointer', marginLeft: '0.4rem', transition: 'all 0.2s'
                     }}
                 >
                     Login

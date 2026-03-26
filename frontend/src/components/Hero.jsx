@@ -151,6 +151,10 @@ const Hero = () => {
                     <motion.div 
                         style={{ display: 'inline-flex', gap: '1rem' }}
                         whileHover={{ scale: 1.02 }}
+                        onClick={() => {
+                            const navigate = window.location.pathname === '/' ? null : null; // Just for conceptualizing
+                            window.location.href = '/products';
+                        }}
                     >
                         <button style={{
                             padding: '14px 34px',

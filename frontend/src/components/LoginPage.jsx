@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, ArrowLeft, Eye, EyeOff, ShieldCheck, Zap, Cpu } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 import logo from '../assets/logo.png';
 
 const LoginPage = () => {
@@ -19,7 +19,7 @@ const LoginPage = () => {
         setError('');
 
         try {
-            const response = await axios.post('http://localhost:5000/api/login', {
+            const response = await api.post('/login', {
                 email,
                 password
             });

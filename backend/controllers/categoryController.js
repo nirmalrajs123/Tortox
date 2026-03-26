@@ -15,7 +15,7 @@ const getCategories = async (req, res) => {
 // @route   POST /api/categories
 const addCategory = async (req, res) => {
     const { parent_id, category_name } = req.body;
-    
+
     if (!category_name) {
         return res.status(400).json({ success: false, message: 'Category name is required' });
     }

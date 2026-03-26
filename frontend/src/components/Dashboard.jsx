@@ -4,13 +4,19 @@ import { useNavigate } from 'react-router-dom';
 import { LayoutDashboard, ShoppingBag, Users, Settings, LogOut, PlusCircle, Edit, X, Trash2 } from 'lucide-react';
 import { productService } from '../services/product'; // ➕ Use productService
 import logo from '../assets/logo.png';
-import AddProductModal from './product'; // ➕ Import Extracted Modal
+import AddProductModal from './product';
+import CategorySettings from './dashboard/CategorySettings';
+import SpecificationsSettings from './dashboard/SpecificationsSettings';
 
-const Dashboard = () => {
+import FilterSettings from './dashboard/FilterSettings';
+import { Moon, Sun } from 'lucide-react';
+
+const Dashboard = ({ toggleTheme, theme }) => {
     const navigate = useNavigate();
     const [products, setProducts] = useState([]);
     const [user, setUser] = useState(null);
-    const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' or 'products'
+    const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard', 'products', 'settings'
+    const [settingsTab, setSettingsTab] = useState('categories'); // 'categories' or 'specifications'
     const [showAddForm, setShowAddForm] = useState(false);
 
     // 🔬 View Modal States flawlessly flaws flawlessly
@@ -64,15 +70,15 @@ const Dashboard = () => {
     if (!user) return null;
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f4f5f7' }}>
+        <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg-primary)', color: 'var(--text-main)', transition: 'all 0.3s ease' }}>
 
             {/* Sidebar dashboard options indexing properly framing securely */}
             <aside style={{
-                width: '260px', background: '#ffffff', borderRight: '1px solid #e2e8f0',
-                display: 'flex', flexDirection: 'column', padding: '1.5rem 1.2rem'
+                width: '260px', background: 'var(--bg-secondary)', borderRight: '1px solid var(--border)',
+                display: 'flex', flexDirection: 'column', padding: '1.5rem 1.2rem', transition: 'all 0.3s ease'
             }}>
-                <div style={{ marginBottom: '2.5rem', display: 'flex', alignItems: 'center' }}>
-                    <img src={logo} alt="Tortox Logo" style={{ height: '35px', objectFit: 'contain' }} />
+                <div style={{ marginBottom: '2.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <img src={logo} alt="Tortox Logo" style={{ height: '35px', objectFit: 'contain', filter: theme === 'dark' ? 'invert(1)' : 'none' }} />
                 </div>
 
                 <nav style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
@@ -84,7 +90,7 @@ const Dashboard = () => {
                     ].map((item) => (
                         <div
                             key={item.view}
-                            onClick={() => { if (item.view === 'dashboard' || item.view === 'products') setCurrentView(item.view); }}
+                            onClick={() => { if (['dashboard', 'products', 'settings'].includes(item.view)) setCurrentView(item.view); }}
                             style={{
                                 display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', borderRadius: '10px',
                                 background: currentView === item.view ? 'rgba(225, 25, 25, 0.05)' : 'transparent',
@@ -97,7 +103,11 @@ const Dashboard = () => {
                     ))}
                 </nav>
 
-                <button onClick={handleLogout} style={{ padding: '11px', background: 'none', border: '1px solid #e2e8f0', borderRadius: '10px', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>
+                <button onClick={toggleTheme} style={{ marginBottom: '1rem', padding: '11px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>
+                    {theme === 'light' ? <Moon size={17} /> : <Sun size={17} />} {theme === 'light' ? 'Dark' : 'Light'} Mode
+                </button>
+
+                <button onClick={handleLogout} style={{ padding: '11px', background: 'none', border: '1px solid var(--border)', borderRadius: '10px', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>
                     <LogOut size={17} /> Logout
                 </button>
             </aside>
@@ -121,10 +131,10 @@ const Dashboard = () => {
                                 { title: 'Total Users', value: '1', icon: <Users size={26} />, color: '#10b981' },
                                 { title: 'Active Views', value: '142', icon: <LayoutDashboard size={26} />, color: '#3b82f6' }
                             ].map((item, index) => (
-                                <div key={index} style={{ background: '#ffffff', padding: '1.5rem', borderRadius: '14px', boxShadow: '0 4px 15px rgba(0,0,0,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div key={index} style={{ background: 'var(--bg-secondary)', padding: '1.5rem', borderRadius: '14px', boxShadow: '0 4px 15px rgba(0,0,0,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid var(--border)', transition: 'all 0.3s ease' }}>
                                     <div>
-                                        <p style={{ color: '#6b7280', fontSize: '0.85rem', fontWeight: 500 }}>{item.title}</p>
-                                        <p style={{ fontSize: '1.8rem', fontWeight: 800, color: '#111827', marginTop: '4px' }}>{item.value}</p>
+                                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 500 }}>{item.title}</p>
+                                        <p style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '4px' }}>{item.value}</p>
                                     </div>
                                     <div style={{ width: '46px', height: '46px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${item.color}10`, color: item.color }}>{item.icon}</div>
                                 </div>
@@ -133,10 +143,45 @@ const Dashboard = () => {
                     </>
                 )}
 
+                {currentView === 'settings' && (
+                    <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                            <div>
+                                <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#111827' }}>Site Settings</h1>
+                                <p style={{ color: '#6b7280', fontSize: '0.9rem' }}>Configure categories and dynamic specification fields</p>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+                            {['categories', 'filters'].map(tab => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setSettingsTab(tab)}
+                                    style={{
+                                        padding: '8px 20px', borderRadius: '10px', fontSize: '0.85rem', fontWeight: 700,
+                                        background: settingsTab === tab ? '#e11919' : 'none',
+                                        color: settingsTab === tab ? '#fff' : '#6b7280',
+                                        border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+                                        boxShadow: settingsTab === tab ? '0 4px 12px rgba(225,25,25,0.15)' : 'none',
+                                        textTransform: 'capitalize'
+                                    }}
+                                >
+                                    {tab}
+                                </button>
+                            ))}
+                        </div>
+
+                        {settingsTab === 'categories' && <CategorySettings />}
+                        {settingsTab === 'specifications' && <SpecificationsSettings />}
+                        {settingsTab === 'filters' && <FilterSettings />}
+                    </>
+                )}
+
                 {(currentView === 'products' || currentView === 'dashboard') && (
                     <>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                             <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#111827' }}>{currentView === 'products' ? 'Manage Products' : 'Product Overview List'}</h2>
+
                             <button onClick={() => setShowAddForm(true)} style={{ padding: '8px 16px', borderRadius: '8px', background: '#e11919', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600 }}><PlusCircle size={16} /> Add Product</button>
                         </div>
 
@@ -186,38 +231,38 @@ const Dashboard = () => {
                                 </motion.div>
                             </div>
                         )}
-                           <style>{`
+                        <style>{`
                             .hover-row { transition: all 0.22s ease-out; }
                             .hover-row:hover { background-color: rgba(225, 25, 25, 0.015) !important; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
                         `}</style>
 
                         {Array.isArray(products) && products.length === 0 ? (
-                            <div style={{ background: '#ffffff', borderRadius: '16px', padding: '5rem 2rem', textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <div style={{ background: 'var(--bg-secondary)', borderRadius: '16px', padding: '5rem 2rem', textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', alignItems: 'center', border: '1px solid var(--border)', transition: 'all 0.3s ease' }}>
                                 <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: 'rgba(225, 25, 25, 0.05)', color: '#e11919', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.2rem' }}>
                                     <ShoppingBag size={28} />
                                 </div>
-                                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#111827', marginBottom: '6px' }}>No Products Setup</h3>
-                                <p style={{ fontSize: '0.85rem', color: '#6b7280', maxWidth: '300px', lineHeight: 1.5, marginBottom: '1.5rem' }}>Your product catalog is currently empty. Start building your portfolio today.</p>
+                                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '6px' }}>No Products Setup</h3>
+                                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', maxWidth: '300px', lineHeight: 1.5, marginBottom: '1.5rem' }}>Your product catalog is currently empty. Start building your portfolio today.</p>
                                 <button onClick={() => setShowAddForm(true)} style={{ padding: '8px 16px', borderRadius: '8px', background: '#e11919', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 600 }}><PlusCircle size={16} /> Add First Product </button>
                             </div>
                         ) : (
-                            <div style={{ background: '#ffffff', borderRadius: '14px', boxShadow: '0 4px 15px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+                            <div style={{ background: 'var(--bg-secondary)', borderRadius: '14px', boxShadow: '0 4px 15px rgba(0,0,0,0.02)', overflow: 'hidden', border: '1px solid var(--border)', transition: 'all 0.3s ease' }}>
                                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                                    <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                                        <tr>{['Product ID', 'Modal No', 'Modal Name', 'Product Name', 'Actions'].map((head) => (<th key={head} style={{ padding: '12px 20px', fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', textTransform: 'uppercase' }}>{head}</th>))}</tr>
+                                    <thead style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border)' }}>
+                                        <tr>{['Product ID', 'Modal No', 'Actions'].map((head) => (<th key={head} style={{ padding: '12px 20px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{head}</th>))}</tr>
                                     </thead>
                                     <tbody>
                                         {products.map((prod) => (
-                                            <tr key={prod.id} className="hover-row" style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                                <td style={{ padding: '14px 20px', color: '#6b7280', fontSize: '0.85rem' }}>{prod.id}</td>
-                                                <td style={{ padding: '14px 20px', fontWeight: 600, color: '#1e293b', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <tr key={prod.id} className="hover-row" style={{ borderBottom: '1px solid var(--border)' }}>
+                                                <td style={{ padding: '14px 20px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>{prod.id}</td>
+                                                <td style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)', fontSize: '0.88rem' }}>
                                                     {prod.modal}
                                                 </td>
-                                                <td style={{ padding: '14px 20px', color: '#111827', fontWeight: 600, fontSize: '0.85rem' }}>{prod.modal_name}</td>
-                                                <td style={{ padding: '14px 20px', color: '#6b7280', fontSize: '0.85rem', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '280px' }}>{prod.product_name}</td>
-                                                <td style={{ padding: '14px 20px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                    <button onClick={() => handleEdit(prod.id)} style={{ padding: '6px 12px', borderRadius: '6px', background: 'rgba(225,25,25,0.08)', color: '#e11919', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', fontWeight: 600 }}><Edit size={14} /> Edit</button>
-                                                    <button onClick={async () => { if(window.confirm("Delete product?")) { try { await productService.delete(prod.id); loadProducts(); } catch(e){ console.error(e); } } }} style={{ padding: '6px 12px', borderRadius: '6px', background: '#fee2e2', color: '#ef4444', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', fontWeight: 600 }}><Trash2 size={14} /> Delete</button>
+                                                <td style={{ padding: '14px 20px' }}>
+                                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                        <button onClick={() => handleEdit(prod.id)} style={{ padding: '6px 12px', borderRadius: '6px', background: 'rgba(225,25,25,0.08)', color: '#e11919', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', fontWeight: 600 }}><Edit size={14} /> Edit</button>
+                                                        <button onClick={async () => { if (window.confirm("Delete product?")) { try { await productService.delete(prod.id); loadProducts(); } catch (e) { console.error(e); } } }} style={{ padding: '6px 12px', borderRadius: '6px', background: '#fee2e2', color: '#ef4444', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', fontWeight: 600 }}><Trash2 size={14} /> Delete</button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence, Reorder } from 'framer-motion';
-import { X, Plus, Trash2 } from 'lucide-react';
+import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
+import { X, Plus, Trash2, GripVertical } from 'lucide-react';
 import { productService } from '../services/product';
 import { categoryService } from '../services/category';
 
@@ -11,12 +11,9 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
     const [name, setName] = useState('');
     const [modelNo, setModelNo] = useState('');
     const [modelName, setModelName] = useState('');
-    const [price, setPrice] = useState('');
     const [description, setDescription] = useState('');
-    const [image, setImage] = useState(''); // 📸 Holds main thumbnail URL string
-    const [variantImages, setVariantImages] = useState([]); // 📸 Holds variant thumbnails lists trigger
-    const [mainImageFile, setMainImageFile] = useState(null); // 📸 Stores main Binary file triggers framing
-    const [variantFiles, setVariantFiles] = useState([]); // 📸 Stores Multiple variant Files trigger framing overlay flaw properly
+    const [image, setImage] = useState(''); // Thumbnail preview
+    const [mainImageFile, setMainImageFile] = useState(null);
 
     // Checkbox multiple selection
     const [selectedVariants, setSelectedVariants] = useState({ Color: false, Size: false, Style: false });
@@ -26,6 +23,9 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
     const [features, setFeatures] = useState(['']);
     const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
     const [newLabelTitle, setNewLabelTitle] = useState('');
+    const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+    const [newFilterTitle, setNewFilterTitle] = useState('');
+    const [newFilterOptions, setNewFilterOptions] = useState('');
 
     // ➕ Custom Specifications Rows Row States
     const [customSpecs, setCustomSpecs] = useState([]);
@@ -36,11 +36,29 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
 
     // 🧬 Combinations Table Generator State flawlessly flawlessly 
     const [combinations, setCombinations] = useState([]);
-    const [showCombinations, setShowCombinations] = useState(false); // ➕ FIXED: Added missing state declaration trigger framing flaws
+    const [showCombinations, setShowCombinations] = useState(false);
+
+    // 📸 Product Images State
+    const [productImages, setProductImages] = useState([]); // { file: File|null, preview: string }[]
+    const [hoverImage, setHoverImage] = useState('');
+    const [hoverImageFile, setHoverImageFile] = useState(null);
+
+    // 🏘️ Variant Detail Modal State
+    const [isVariantModalOpen, setIsVariantModalOpen] = useState(false);
+    const [editingVariantIdx, setEditingVariantIdx] = useState(null);
 
     // 🧼 Manual State Additions flawed flawless flaw flawlessly setup 
     const handleAddCombination = () => {
-        setCombinations([...combinations, { Color: '', Size: '', Style: '', variantFiles: [], previews: [] }]);
+        setCombinations([...combinations, {
+            Color: '', Size: '', Style: '',
+            variantFiles: [], previews: [],
+            features: [''], // Core features for this variant
+            filters: filtersList.map(f => ({ ...f })),
+            specs: caseSpecsList.map(s => ({ ...s })),
+            description: '', // Variant description
+            modelName: '',
+            productName: ''
+        }]);
     };
 
     const handleGenerateCombinations = () => {
@@ -56,7 +74,16 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
         colors.forEach(c => {
             sizes.forEach(s => {
                 styles.forEach(st => {
-                    newCombs.push({ Color: c, Size: s, Style: st, variantFiles: [], previews: [] });
+                    newCombs.push({
+                        Color: c, Size: s, Style: st,
+                        variantFiles: [], previews: [],
+                        features: [''],
+                        filters: filtersList.map(f => ({ ...f })),
+                        specs: caseSpecsList.map(s => ({ ...s })),
+                        description: '',
+                        modelName: '',
+                        productName: ''
+                    });
                 });
             });
         });
@@ -105,6 +132,38 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
         { id: 12, key: 'pcieSlots', label: 'PCIE Slots', value: '' }
     ]);
     const [categories, setCategories] = useState([]);
+    const [filtersList, setFiltersList] = useState([]);
+
+    // 🔄 Sync new spec fields to all variants flawlessly flaws flawlessly
+    // 🔄 Sync new spec fields to all variants flawlessly flaws flawlessly
+    useEffect(() => {
+        if (combinations.length > 0) {
+            setCombinations(prev => prev.map(comb => {
+                const currentSpecs = comb.specs || [];
+
+                // 1. Fill missing ones
+                let updatedSpecs = [...currentSpecs];
+                let changed = false;
+
+                caseSpecsList.forEach(s => {
+                    const exists = currentSpecs.find(cs => cs.id === s.id);
+                    if (!exists) {
+                        updatedSpecs.push({ ...s, value: '' });
+                        changed = true;
+                    }
+                });
+
+                // 2. Remove orphaned ones (ones that are no longer in caseSpecsList)
+                const filteredSpecs = updatedSpecs.filter(us =>
+                    caseSpecsList.some(s => s.id === us.id)
+                );
+
+                if (filteredSpecs.length !== updatedSpecs.length) changed = true;
+
+                return changed ? { ...comb, specs: filteredSpecs } : comb;
+            }));
+        }
+    }, [caseSpecsList, combinations.length]);
 
     useEffect(() => {
         const loadCategories = async () => {
@@ -124,27 +183,53 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
                 try {
                     const res = await productService.getSpecLabels(category);
                     if (res.data.success && res.data.data.length > 0) {
-                        let savedSpecs = {};
-                        if (productToEdit && productToEdit.specs) {
-                            try { savedSpecs = typeof productToEdit.specs === 'string' ? JSON.parse(productToEdit.specs) : productToEdit.specs; } catch (e) { }
-                        }
+                        const specsArray = productToEdit && Array.isArray(productToEdit.specifications) ? productToEdit.specifications : [];
 
-                        setCaseSpecsList(res.data.data.map((item) => {
+                        const mappedSpecs = res.data.data.map((item) => {
                             const genKey = item.spec_label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-                            const match = savedSpecs[genKey] || savedSpecs[item.id] || { value: '' };
+                            const match = specsArray.find(s => s.spec_label_id === item.id);
+
                             return {
                                 id: item.id,
                                 key: genKey,
                                 label: item.spec_label,
-                                value: match.value || ''
+                                options: item.spec_options ? item.spec_options.split(',').map(o => o.trim()).filter(Boolean) : null,
+                                value: match ? match.specification_value : '',
+                                order: match && match.order_id != null ? match.order_id : 9999
                             };
-                        }));
+                        });
+
+                        // 🛡️ Sort them by the preserved `order` from specifications
+                        mappedSpecs.sort((a, b) => a.order - b.order);
+                        setCaseSpecsList(mappedSpecs);
                     }
                 } catch (err) {
                     console.error('Failed to load spec labels:', err);
                 }
             };
             fetchSpecs();
+
+            const fetchFilters = async () => {
+                try {
+                    const res = await productService.getFilterConfig(category);
+                    if (res.data.success) {
+                        const existingFilters = productToEdit && Array.isArray(productToEdit.filters) ? productToEdit.filters : [];
+                        const mappedFilters = res.data.data.map(ft => {
+                            const match = existingFilters.find(ef => ef.filter_type_id === ft.id);
+                            return {
+                                id: ft.id,
+                                label: ft.filter_label,
+                                options: ft.values || [], // This is now an array of {id, filter_value}
+                                value: match ? match.filter_value : ''
+                            };
+                        });
+                        setFiltersList(mappedFilters);
+                    }
+                } catch (err) {
+                    console.error('Failed to load filter config:', err);
+                }
+            };
+            fetchFilters();
         }
     }, [category, productToEdit]);
 
@@ -154,53 +239,95 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
             setName(productToEdit.product_name || '');
             setModelNo(productToEdit.modal || '');
             setModelName(productToEdit.modal_name || '');
-            setPrice(productToEdit.price?.toString() || '');
             setDescription(productToEdit.product_description || '');
             setMbCompat(productToEdit.mb_compat || '');
             setCoolerCompat(productToEdit.cooler_compat || '');
             setPanelType(productToEdit.panel_type || '');
             setInstalledFans(productToEdit.installed_fans || '');
             setInstalledPsu(productToEdit.installed_psu || '');
+            if (productToEdit.image) {
+                const img = productToEdit.image;
+                const fullImg = img.startsWith('http') ? img : `http://${window.location.hostname}:5000${img.startsWith('/') ? '' : '/'}${img}`;
+                setImage(fullImg);
+            }
 
             if (productToEdit.product_features) {
                 const feats = productToEdit.product_features.split('\n');
                 if (feats.length > 0) setFeatures(feats);
             }
 
-            if (productToEdit.specs) {
+            const specsArray = productToEdit && Array.isArray(productToEdit.specifications) ? productToEdit.specifications : [];
+            const displaySpec = specsArray.find(s => s.specification_name === 'Display Type');
+            if (displaySpec) {
+                setCaseDisplay(displaySpec.specification_value || '');
+            } else if (productToEdit.specs) {
                 try {
                     const spc = typeof productToEdit.specs === 'string' ? JSON.parse(productToEdit.specs) : productToEdit.specs;
-                    if (spc.caseDisplay) setCaseDisplay(spc.caseDisplay);
+                    if (spc.caseDisplay) setCaseDisplay(typeof spc.caseDisplay === 'object' ? spc.caseDisplay.value : spc.caseDisplay);
                 } catch (e) { }
             }
 
             if (productToEdit.combinations && productToEdit.combinations.length > 0) {
-                setCombinations(productToEdit.combinations);
+                const hydratedCombs = productToEdit.combinations.map(c => ({
+                    ...c,
+                    previews: (c.previews || []).map(p => {
+                        if (!p) return '';
+                        if (p.startsWith('http')) return p;
+                        return `http://${window.location.hostname}:5000${p.startsWith('/') ? '' : '/'}${p}`;
+                    })
+                }));
+                setCombinations(hydratedCombs);
                 const hasColor = productToEdit.combinations.some(c => c.Color);
                 const hasSize = productToEdit.combinations.some(c => c.Size);
                 const hasStyle = productToEdit.combinations.some(c => c.Style);
                 setSelectedVariants({ Color: !!hasColor, Size: !!hasSize, Style: !!hasStyle });
             }
+
+            if (productToEdit.product_images && productToEdit.product_images.length > 0) {
+                setProductImages(productToEdit.product_images.map(img => {
+                    const path = img.image_path || '';
+                    if (path.startsWith('http')) return { file: null, preview: path };
+                    // Ensure slash between domain and path
+                    const slash = path.startsWith('/') ? '' : '/';
+                    return { file: null, preview: `http://${window.location.hostname}:5000${slash}${path}` };
+                }));
+            }
+            if (productToEdit.hover_image) {
+                const h = productToEdit.hover_image;
+                const fullH = h.startsWith('http') ? h : `http://${window.location.hostname}:5000${h.startsWith('/') ? '' : '/'}${h}`;
+                setHoverImage(fullH);
+            }
         } else if (isOpen && !productToEdit) {
-            setCategory(''); setName(''); setModelNo(''); setModelName(''); setPrice(''); setDescription('');
+            setCategory(''); setName(''); setModelNo(''); setModelName(''); setDescription('');
             setMbCompat(''); setCoolerCompat(''); setPanelType(''); setInstalledFans(''); setInstalledPsu(''); setCaseDisplay('');
             setFeatures(['']);
+            setProductImages([]);
+            setImage('');
+            setMainImageFile(null);
         }
     }, [productToEdit, isOpen]);
 
     // Handlers list updates trigger safely
     const handleSaveSpecLabel = async () => {
-        if (!newLabelTitle.trim()) return alert("Please type a label title!");
+        const trimmedTitle = newLabelTitle.trim();
+        if (!trimmedTitle) return alert("Please type a label title!");
         if (!category) return alert("Please select a Category from the dropdown first!");
         try {
-            const res = await productService.addSpecLabel({ category_id: category, spec_label: newLabelTitle });
+            const res = await productService.addSpecLabel({ category_id: category, spec_label: trimmedTitle });
             if (res.data.success) {
-                setCaseSpecsList([...caseSpecsList, {
+                const newItem = {
                     id: res.data.data.id,
-                    key: res.data.data.spec_label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-0_]/g, ''),
+                    key: res.data.data.spec_label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
                     label: res.data.data.spec_label,
-                    value: ''
-                }]);
+                    value: '',
+                    order: res.data.data.order_id || 9999
+                };
+
+                setCaseSpecsList(prev => {
+                    const exists = prev.find(s => s.id === newItem.id);
+                    return exists ? prev : [...prev, newItem];
+                });
+
                 setNewLabelTitle('');
                 setIsLabelModalOpen(false);
                 setStatusMessage('Specification added!');
@@ -209,6 +336,40 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
             }
         } catch (e) {
             console.error("Add Spec Label Error:", e);
+            alert("Error: " + (e.response?.data?.message || e.message));
+        }
+    };
+
+    const handleAddFilterType = async () => {
+        if (!newFilterTitle.trim()) return alert("Please type a filter label!");
+        if (!category) return alert("Please select a Category first!");
+        try {
+            const res = await productService.addFilterLabel({
+                category_id: category,
+                filter_label: newFilterTitle
+            });
+            if (res.data.success) {
+                const newItem = {
+                    id: res.data.data.id,
+                    label: res.data.data.filter_label,
+                    options: res.data.data.values || [],
+                    value: ''
+                };
+
+                setFiltersList(prev => {
+                    const exists = prev.find(f => f.id === newItem.id);
+                    return exists ? prev : [...prev, newItem];
+                });
+
+                setNewFilterTitle('');
+                setNewFilterOptions(''); // Keep state but ignored for labels
+                setIsFilterModalOpen(false);
+                setStatusMessage('Filter type added (manage options in settings)!');
+                setStatusType('success');
+                setTimeout(() => setStatusMessage(''), 1500);
+            }
+        } catch (e) {
+            console.error("Add Filter Label Error:", e);
             alert("Error: " + (e.response?.data?.message || e.message));
         }
     };
@@ -245,22 +406,6 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
         setCustomSpecs(list);
     };
 
-    // 📸 Handlers Multiple Variant Images state
-    const handleRemoveVariantImage = (index) => {
-        setVariantImages(variantImages.filter((_, i) => i !== index));
-        setVariantFiles(variantFiles.filter((_, i) => i !== index)); // Remove corresponding Binary File object node flaws flawless
-    };
-
-    // 📸 Save multiple Binary files locally flawless flawlessly triggers
-    const handleVariantImageChange = (fileList) => {
-        if (!fileList || fileList.length === 0) return;
-
-        const filesArray = Array.from(fileList);
-        setVariantFiles([...variantFiles, ...filesArray]); // 📸 Store actual Binary file triggers
-
-        const previews = filesArray.map(file => URL.createObjectURL(file)); // Make thumbnail thumbs static previews trigger framing
-        setVariantImages([...variantImages, ...previews]); // Append triggers flawless flawless flawlessly
-    };
 
     // 📸 Immediate Local preview for Main Image
     const handleMainImageChange = (file) => {
@@ -271,14 +416,34 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
         setImage(previewUrl); // Show preview locally flawless flawlessly setup
     };
 
+    const handleHoverImageChange = (file) => {
+        if (!file) return;
+        setHoverImageFile(file);
+        const previewUrl = URL.createObjectURL(file);
+        setHoverImage(previewUrl);
+    };
+
     const handleAddProduct = async (e) => {
         e.preventDefault();
+
+
+        if (!category) return alert("Please select a Category!");
+
+        // 📸 REQUIRE IMAGES AS PER USER REQUEST
+        if (productImages.length === 0) {
+            setActiveTab('Product Images');
+            return alert("Please add at least one Product Image!");
+        }
+        if (!hoverImage && !hoverImageFile) {
+            setActiveTab('Product Images');
+            return alert("Please set a Hover Image!");
+        }
 
         const formData = new FormData();
         formData.append('category_id', category);
         formData.append('modal', modelNo);
         formData.append('modal_name', modelName);
-        formData.append('product_name', name);
+        ;
         formData.append('product_description', description);
         formData.append('mb_compat', mbCompat);
         formData.append('cooler_compat', coolerCompat);
@@ -288,40 +453,94 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
         formData.append('product_features', features.filter(f => f.trim() !== '').join('\n'));
         formData.append('featuresList', JSON.stringify(features.filter(f => f.trim() !== '')));
 
-        // Stringify nested structures flawless flaws
-        const specsObj = {};
-        caseSpecsList.forEach((s, idx) => {
-            if (s.value && s.value.trim() !== '') {
-                specsObj[s.key || s.id] = { value: s.value, order: idx + 1, label: s.label, spec_label_id: s.id };
-            }
-        });
-        if (caseDisplay) specsObj.caseDisplay = caseDisplay;
-        formData.append('specs', JSON.stringify(specsObj));
-
-        const parsedCustomSpecs = customSpecs
-            .filter(spec => spec.key && spec.key.trim() !== '')
-            .map((spec, idx) => ({
-                specification_name: spec.key.trim(),
-                specification_value: spec.value ? spec.value.trim() : '',
-                order_id: idx + 1
+        // 📐 Global Specifications Array
+        const mappedSpecsArray = caseSpecsList
+            .filter(s => s.value && s.value.trim() !== '')
+            .map((s, idx) => ({
+                specification_name: s.label,
+                specification_value: s.value,
+                order_id: idx + 1,
+                spec_label_id: s.id
             }));
-        console.log(parsedCustomSpecs);
-        formData.append('specifications', JSON.stringify(parsedCustomSpecs));
 
-        if (mainImageFile) formData.append('image', mainImageFile);
+        if (caseDisplay) {
+            mappedSpecsArray.push({
+                specification_name: 'Display Type',
+                specification_value: caseDisplay,
+                order_id: 99,
+                spec_label_id: null
+            });
+        }
+        formData.append('specifications', JSON.stringify(mappedSpecsArray));
 
-        // 📸 Append Combinations structured matrix flawless flaws
+        const filtersToSave = filtersList
+            .filter(f => f.value && f.value.trim() !== '')
+            .map(f => ({ filter_type_id: f.id, filter_value: f.value }));
+        formData.append('filters', JSON.stringify(filtersToSave));
+
+        if (mainImageFile) {
+            formData.append('image', mainImageFile);
+        } else if (image) {
+            formData.append('existing_image', image.replace(/^https?:\/\/[^\/]+/i, ''));
+        }
+
+        if (hoverImageFile) {
+            formData.append('hover_image', hoverImageFile);
+        } else if (hoverImage) {
+            formData.append('existing_hover_image', hoverImage.replace(/^https?:\/\/[^\/]+/i, ''));
+        }
+
+        // 📸 Append Combinations structured matrix
         formData.append('combinations', JSON.stringify(combinations.map(c => ({
-            Color: c.Color, Size: c.Size, Style: c.Style
+            Color: c.Color, Size: c.Size, Style: c.Style,
+            features: c.features,
+            filters: c.filters,
+            specs: (c.specs || []).map((s, sIdx) => ({
+                ...s,
+                order: sIdx + 1
+            })),
+            description: c.description || '',
+            modelName: c.modelName || '',
+            productName: c.productName || ''
         }))));
 
         combinations.forEach((comb, idx) => {
             if (comb.variantFiles) {
                 comb.variantFiles.forEach(file => {
-                    formData.append(`comb_images_${idx}`, file); // Specific indexed files trigger framing index
+                    if (file) formData.append(`comb_images_${idx}`, file);
                 });
             }
+
+            // 📸 Build Combined Order for Variant Images
+            // We communicate absolute order string array list supporting reorder
+            const orderList = [];
+            let fileCounter = 0;
+            const previews = comb.previews || [];
+
+            previews.forEach((p) => {
+                if (p.startsWith('blob:')) {
+                    // It's a newly added local file
+                    orderList.push(`FILE_${fileCounter}`);
+                    fileCounter++;
+                } else {
+                    // It's an existing image absolute URL from database
+                    orderList.push(p);
+                }
+            });
+            formData.append(`comb_images_order_${idx}`, JSON.stringify(orderList));
         });
+
+        // 📸 Append Product Images
+        const existingImages = [];
+        productImages.forEach((img) => {
+            if (img.file) {
+                formData.append('product_images', img.file);
+            } else if (img.preview) {
+                // p.replace(/^https?:\/\/[^\/]+/i, '')
+                existingImages.push(img.preview.replace(/^https?:\/\/[^\/]+/i, ''));
+            }
+        });
+        formData.append('existing_product_images', JSON.stringify(existingImages));
 
         try {
             if (productToEdit) {
@@ -335,10 +554,11 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
             setTimeout(() => { onSuccess(); onClose(); setStatusMessage(''); }, 1500); // Wait status view
 
             // Reset states safely trigger framing
-            setCategory(''); setName(''); setModelNo(''); setModelName(''); setPrice(''); setDescription(''); setImage('');
-            setVariantImages([]); setMainImageFile(null); setVariantFiles([]);
+            setCategory(''); setName(''); setModelNo(''); setModelName(''); setDescription(''); setImage('');
+            setMainImageFile(null);
             setSelectedVariants({ Color: false, Size: false, Style: false }); setVariantDetails({ Color: '', Size: '', Style: '' }); setFeatures(['']);
             setCustomSpecs([]); setCombinations([]); setShowCombinations(false);
+            setProductImages([]);
             setMbCompat(''); setCoolerCompat(''); setPanelType(''); setInstalledFans(''); setInstalledPsu(''); setCaseDisplay('');
             setCaseSpecsList(caseSpecsList.map(s => ({ ...s, value: '' })));
         } catch (err) {
@@ -366,415 +586,589 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
                         .btn-glowing:active { transform: translateY(0); }
                     `}</style>
                     <motion.div
-                        initial={{ scale: 0.95, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0.95, opacity: 0 }}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
                         onClick={(e) => e.stopPropagation()}
                         style={modalStyle}
                     >
-                        <div style={headerStyle}>
-                            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#111827' }}>{productToEdit ? 'Edit Product' : 'Add New Product'}</h3>
-                            <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer' }}><X size={20} /></button>
-                        </div>
-
-                        {statusMessage && (
-                            <div style={{ padding: '10px 14px', borderRadius: '8px', background: statusType === 'success' ? '#dcfce7' : '#fee2e2', color: statusType === 'success' ? '#166534' : '#ef4444', fontSize: '0.85rem', fontWeight: 600, border: statusType === 'success' ? '1px solid #bcf0da' : '1px solid #fecaca', marginBottom: '8px', margin: '0 1.5rem' }}>
-                                {statusMessage}
-                            </div>
-                        )}
-
-                        <form onSubmit={handleAddProduct} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                            <div style={{ display: 'flex', gap: '8px', borderBottom: '2px solid #f1f5f9', paddingBottom: '12px', marginBottom: '1.5rem' }}>
-                                {['General', 'Specifications', 'Features', 'Variant', 'Combinations'].map((t) => (
-                                    <button key={t} type="button" onClick={() => setActiveTab(t)} style={{ padding: '8px 16px', background: activeTab === t ? 'linear-gradient(135deg, #e11919 0%, #900a0a 100%)' : 'none', color: activeTab === t ? '#fff' : '#6b7280', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700, transition: 'all 0.2s', boxShadow: activeTab === t ? '0 4px 12px rgba(225,25,25,0.2)' : 'none' }}>{t}</button>
-                                ))}
+                        <div style={{ maxWidth: '1300px', margin: '0 auto', width: '100%' }}>
+                            <div style={headerStyle}>
+                                <h3 style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.5px' }}>{productToEdit ? 'Edit Product' : 'Add New Product'}</h3>
+                                <button type="button" onClick={onClose} style={{ background: 'var(--bg-secondary)', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }} className="hover-lift"><X size={24} /></button>
                             </div>
 
-                            <div style={{ display: activeTab === 'General' ? 'flex' : 'none', flexDirection: 'column', gap: '1.2rem' }}>
-                                <div>
-                                    <label style={labelStyle}>Category</label>
-                                    <select required value={category} onChange={(e) => setCategory(e.target.value)} style={inputStyle}>
-                                        <option value="">-- Select Category --</option>
-                                        {categories.map(cat => (
-                                            <option key={cat.id} value={cat.id}>{cat.category_name}</option>
-                                        ))}
-                                    </select>
+                            <div style={{ marginBottom: '2.5rem' }}>
+                                <p style={{ fontSize: '0.95rem', color: '#64748b', fontWeight: 500 }}>{productToEdit ? 'Update existing product details, variants, and configurations.' : 'Create a new product listing with multi-variant support and detailed specifications.'}</p>
+                            </div>
+
+
+                            {statusMessage && (
+                                <div style={{ padding: '10px 14px', borderRadius: '8px', background: statusType === 'success' ? '#dcfce7' : '#fee2e2', color: statusType === 'success' ? '#166534' : '#ef4444', fontSize: '0.85rem', fontWeight: 600, border: statusType === 'success' ? '1px solid #bcf0da' : '1px solid #fecaca', marginBottom: '8px', margin: '0 1.5rem' }}>
+                                    {statusMessage}
+                                </div>
+                            )}
+
+                            <form onSubmit={handleAddProduct} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                                <div style={{ display: 'flex', gap: '8px', borderBottom: '2px solid #f1f5f9', paddingBottom: '12px', marginBottom: '1.5rem', overflowX: 'auto', whiteSpace: 'nowrap' }}>
+                                    {['General', 'Variant', 'Product Images'].map((t) => (
+                                        <button key={t} type="button" onClick={() => setActiveTab(t)} style={{ padding: '8px 16px', background: activeTab === t ? 'linear-gradient(135deg, #e11919 0%, #900a0a 100%)' : 'none', color: activeTab === t ? '#fff' : '#6b7280', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700, transition: 'all 0.2s', boxShadow: activeTab === t ? '0 4px 12px rgba(225,25,25,0.2)' : 'none' }}>{t}</button>
+                                    ))}
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><label style={{ ...labelStyle, whiteSpace: 'nowrap', fontSize: '0.75rem' }}>Model No</label><input type="text" placeholder="e.g., TX-DLX21" required value={modelNo} onChange={(e) => setModelNo(e.target.value)} style={{ ...inputStyle, marginTop: 0 }} /></div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><label style={{ ...labelStyle, whiteSpace: 'nowrap', fontSize: '0.75rem' }}>Model Name</label><input type="text" placeholder="e.g., DX-21" required value={modelName} onChange={(e) => setModelName(e.target.value)} style={{ ...inputStyle, marginTop: 0 }} /></div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><label style={{ ...labelStyle, whiteSpace: 'nowrap', fontSize: '0.75rem' }}>Product Name</label><input type="text" placeholder="e.g., DLX21 Mesh" required value={name} onChange={(e) => setName(e.target.value)} style={{ ...inputStyle, marginTop: 0 }} /></div>
-                                </div>
-
-
-                            </div>
-
-                            <div style={{ display: activeTab === 'Specifications' ? 'flex' : 'none', flexDirection: 'column', gap: '1.2rem' }}>
-                                {category && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                                        <div style={{ display: "none" }}></div>
-
-                                        {(() => {
-                                            const selectedCat = categories.find(c => String(c.id) === String(category));
-                                            const isPowerSupply = selectedCat && selectedCat.category_name.toUpperCase().includes('POWER SUPPLY');
-                                            const isLiquidCooling = selectedCat && (selectedCat.category_name.toUpperCase().includes('LIQUID COOLER') || selectedCat.category_name.toUpperCase().includes('LIQUID COOLING'));
-                                            const isAirCooling = selectedCat && selectedCat.category_name.toUpperCase().includes('AIR COOLER');
-
-                                            if (isPowerSupply) {
-                                                return (
-                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-                                                        <div>
-                                                            <label style={labelStyle}>Watts</label>
-                                                            <select value={watts} onChange={(e) => setWatts(e.target.value)} style={inputStyle}>
-                                                                <option value="">-- Select --</option>
-                                                                {['550W', '650W', '750W', '850W', '1050W', '1250W'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
-                                                            </select>
-                                                        </div>
-                                                        <div>
-                                                            <label style={labelStyle}>Efficiency</label>
-                                                            <select value={efficiency} onChange={(e) => setEfficiency(e.target.value)} style={inputStyle}>
-                                                                <option value="">-- Select --</option>
-                                                                {['Normal', '80 Plus White', '80 Plus Gold', '80 Plus Platinum', '80 Plus Titanium'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
-                                                            </select>
-                                                        </div>
-                                                        <div>
-                                                            <label style={labelStyle}>Modularity</label>
-                                                            <select value={modularity} onChange={(e) => setModularity(e.target.value)} style={inputStyle}>
-                                                                <option value="">-- Select --</option>
-                                                                {['Full Modular', 'Non Modular'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
-                                                            </select>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            } else if (isLiquidCooling) {
-                                                return (
-                                                    <>
-                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
-                                                            <div>
-                                                                <label style={labelStyle}>Radiator Size</label>
-                                                                <select value={radiatorSize} onChange={(e) => setRadiatorSize(e.target.value)} style={inputStyle}>
-                                                                    <option value="">-- Select --</option>
-                                                                    {['120mm', '140mm', '240mm', '280mm', '360mm', '420mm', '480mm'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
-                                                                </select>
-                                                            </div>
-                                                            <div>
-                                                                <label style={labelStyle}>Lighting</label>
-                                                                <select value={lighting} onChange={(e) => setLighting(e.target.value)} style={inputStyle}>
-                                                                    <option value="">-- Select --</option>
-                                                                    {['ARGB', 'Non-RGB'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
-                                                                </select>
-                                                            </div>
-                                                        </div>
-
-                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
-                                                            <div>
-                                                                <label style={labelStyle}>Display</label>
-                                                                <select value={coolerDisplay} onChange={(e) => setCoolerDisplay(e.target.value)} style={inputStyle}>
-                                                                    <option value="">-- Select --</option>
-                                                                    {['No Display', 'Digital Display', 'Customizable Display'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
-                                                                </select>
-                                                            </div>
-                                                            <div>
-                                                                <label style={labelStyle}>TDP</label>
-                                                                <select value={tdp} onChange={(e) => setTdp(e.target.value)} style={inputStyle}>
-                                                                    <option value="">-- Select --</option>
-                                                                    {['150-200', '200-250', '250-300', '300-350', '350+'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
-                                                                </select>
-                                                            </div>
-                                                        </div>
-                                                    </>
-                                                );
-                                            } else if (isAirCooling) {
-                                                return (
-                                                    <>
-                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-                                                            <div>
-                                                                <label style={labelStyle}>Tower Type</label>
-                                                                <select value={towerType} onChange={(e) => setTowerType(e.target.value)} style={inputStyle}>
-                                                                    <option value="">-- Select --</option>
-                                                                    {['Single', 'Dual'].map((t, idx) => (<option key={idx} value={t}>{t}</option>))}
-                                                                </select>
-                                                            </div>
-                                                            <div>
-                                                                <label style={labelStyle}>Fan Size</label>
-                                                                <select value={fanSize} onChange={(e) => setFanSize(e.target.value)} style={inputStyle}>
-                                                                    <option value="">-- Select --</option>
-                                                                    {['90mm', '120mm'].map((t, idx) => (<option key={idx} value={t}>{t}</option>))}
-                                                                </select>
-                                                            </div>
-                                                            <div>
-                                                                <label style={labelStyle}>Lighting</label>
-                                                                <select value={airLighting} onChange={(e) => setAirLighting(e.target.value)} style={inputStyle}>
-                                                                    <option value="">-- Select --</option>
-                                                                    {['RGB', 'ARGB', 'Non RGB'].map((t, idx) => (<option key={idx} value={t}>{t}</option>))}
-                                                                </select>
-                                                            </div>
-                                                        </div>
-
-                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginTop: '1rem' }}>
-                                                            <div>
-                                                                <label style={labelStyle}>Display</label>
-                                                                <select value={airDisplay} onChange={(e) => setAirDisplay(e.target.value)} style={inputStyle}>
-                                                                    <option value="">-- Select --</option>
-                                                                    {['No Display', 'Digital Display'].map((t, idx) => (<option key={idx} value={t}>{t}</option>))}
-                                                                </select>
-                                                            </div>
-                                                            <div>
-                                                                <label style={labelStyle}>TDP</label>
-                                                                <select value={airTdp} onChange={(e) => setAirTdp(e.target.value)} style={inputStyle}>
-                                                                    <option value="">-- Select --</option>
-                                                                    {['50-100', '100-150', '150-200', '200-250', '250+'].map((t, idx) => (<option key={idx} value={t}>{t}</option>))}
-                                                                </select>
-                                                            </div>
-                                                            <div>
-                                                                <label style={labelStyle}>Heat Pipes</label>
-                                                                <select value={heatPipes} onChange={(e) => setHeatPipes(e.target.value)} style={inputStyle}>
-                                                                    <option value="">-- Select --</option>
-                                                                    {['2', '4', '6'].map((t, idx) => (<option key={idx} value={t}>{t}</option>))}
-                                                                </select>
-                                                            </div>
-                                                        </div>
-                                                    </>
-                                                );
-                                            } else {
-                                                return (
-                                                    <>
-                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
-                                                            <div>
-                                                                <label style={labelStyle}>Motherboard Compatibility</label>
-                                                                <select value={mbCompat} onChange={(e) => setMbCompat(e.target.value)} style={inputStyle}>
-                                                                    <option value="">-- Select --</option>
-                                                                    {['E-ATX', 'ATX', 'M-ATX', 'ITX'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
-                                                                </select>
-                                                            </div>
-                                                            <div>
-                                                                <label style={labelStyle}>Liquid Cooler Compatibility</label>
-                                                                <select value={coolerCompat} onChange={(e) => setCoolerCompat(e.target.value)} style={inputStyle}>
-                                                                    <option value="">-- Select --</option>
-                                                                    {['120MM', '240MM', '280MM', '360MM', '480MM'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
-                                                                </select>
-                                                            </div>
-                                                        </div>
-
-                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
-                                                            <div>
-                                                                <label style={labelStyle}>Panel Type</label>
-                                                                <select value={panelType} onChange={(e) => setPanelType(e.target.value)} style={inputStyle}>
-                                                                    <option value="">-- Select --</option>
-                                                                    {['Tempered Glass', 'Mesh Panel'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
-                                                                </select>
-                                                            </div>
-                                                            <div>
-                                                                <label style={labelStyle}>Pre-Installed Fans</label>
-                                                                <select value={installedFans} onChange={(e) => setInstalledFans(e.target.value)} style={inputStyle}>
-                                                                    <option value="">-- Select --</option>
-                                                                    {['No Fans', '3 ARGB Fans', '4 ARGB Fans', '5 ARGB Fans', '6 ARGB Fans', '7 ARGB Fans'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
-                                                                </select>
-                                                            </div>
-                                                        </div>
-
-                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
-                                                            <div>
-                                                                <label style={labelStyle}>Pre-Installed PSU</label>
-                                                                <select value={installedPsu} onChange={(e) => setInstalledPsu(e.target.value)} style={inputStyle}>
-                                                                    <option value="">-- Select --</option>
-                                                                    {['No PSU', '650 Watts', '700 Watts', '850 Watts', '1050 Watts'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
-                                                                </select>
-                                                            </div>
-                                                            <div>
-                                                                <label style={labelStyle}>Display Type</label>
-                                                                <select value={caseDisplay} onChange={(e) => setCaseDisplay(e.target.value)} style={inputStyle}>
-                                                                    <option value="">-- Select --</option>
-                                                                    {['No Display', 'Customizable Display', 'Digital Display'].map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
-                                                                </select>
-                                                            </div>
-                                                        </div>
-                                                    </>
-                                                );
-                                            }
-                                        })()}
-                                    </div>
-                                )}
-                            </div>
-
-                            <div style={{ display: activeTab === 'Features' ? 'flex' : 'none', flexDirection: 'column', gap: '1.2rem' }}>
-                                <div style={{ padding: '0 1.2rem' }}>
-                                    <div style={{ marginBottom: '1.5rem' }}>
-                                        <label style={labelStyle}>Product Description</label>
-                                        <textarea placeholder="Detailed description..." required value={description} onChange={(e) => setDescription(e.target.value)} style={{ ...inputStyle, height: '90px' }} />
-                                    </div>
-
-                                    <label style={labelStyle}>Product Features</label>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        {features.map((feat, index) => (
-                                            <div key={index} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                <input type="text" placeholder="Enter feature point..." required value={feat} onChange={(e) => handleFeatureChange(index, e.target.value)} style={inputStyle} />
-                                                {features.length > 1 && (
-                                                    <button type="button" onClick={() => handleRemoveFeature(index)} style={{ padding: '8px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center' }}><Trash2 size={16} /></button>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <button type="button" onClick={handleAddFeature} style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', background: 'none', border: '1px dashed #e11919', color: '#e11919', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}><Plus size={14} /> Add Feature</button>
-                                </div>
-                            </div>
-
-                            <div style={{ display: activeTab === 'Variant' ? 'flex' : 'none', flexDirection: 'column', gap: '1.2rem' }}>
-                                <div style={{ padding: '0 1.2rem' }}>
-
-                                    {/* Variant Checkboxes */}
-                                    <div style={{ padding: '0.5rem 0', marginBottom: '1rem', borderBottom: '1px solid #f1f5f9' }}>
-                                        <label style={{ ...labelStyle, marginBottom: '12px' }}>Enable Variations</label>
-                                        <div style={{ display: 'flex', gap: '2rem' }}>
-                                            {['Color', 'Size', 'Style'].map(type => (
-                                                <label key={type} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 600, color: '#475569', cursor: 'pointer' }}>
-                                                    <input type="checkbox" checked={selectedVariants[type]} onChange={() => handleVariantCheckbox(type)} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#e11919' }} />
-                                                    {type}
-                                                </label>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* The Generated Combinations Table or List */}
-                                    {Object.keys(selectedVariants).some(k => selectedVariants[k]) && (
-                                        <div style={{ marginBottom: '2rem' }}>
-                                            <p style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e11919', textTransform: 'uppercase', marginBottom: '12px' }}>Generated Combinations</p>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                                {combinations.map((comb, index) => (
-                                                    <div key={index} style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1rem', background: '#ffffff', position: 'relative' }}>
-                                                        <button type="button" onClick={() => setCombinations(combinations.filter((_, i) => i !== index))} style={{ position: 'absolute', top: '1rem', right: '1rem', padding: '4px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer' }}><Trash2 size={13} /></button>
-
-                                                        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', paddingRight: '2rem' }}>
-                                                            {selectedVariants.Color && (
-                                                                <div style={{ flex: 1 }}>
-                                                                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Color</label>
-                                                                    <input type="text" value={comb.Color} onChange={(e) => { const newComb = [...combinations]; newComb[index].Color = e.target.value; setCombinations(newComb); }} style={{ ...inputStyle, padding: '6px 10px', marginTop: '4px' }} />
-                                                                </div>
-                                                            )}
-                                                            {selectedVariants.Size && (
-                                                                <div style={{ flex: 1 }}>
-                                                                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Size</label>
-                                                                    <input type="text" value={comb.Size} onChange={(e) => { const newComb = [...combinations]; newComb[index].Size = e.target.value; setCombinations(newComb); }} style={{ ...inputStyle, padding: '6px 10px', marginTop: '4px' }} />
-                                                                </div>
-                                                            )}
-                                                            {selectedVariants.Style && (
-                                                                <div style={{ flex: 1 }}>
-                                                                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Style</label>
-                                                                    <input type="text" value={comb.Style} onChange={(e) => { const newComb = [...combinations]; newComb[index].Style = e.target.value; setCombinations(newComb); }} style={{ ...inputStyle, padding: '6px 10px', marginTop: '4px' }} />
-                                                                </div>
-                                                            )}
-                                                        </div>
-
-                                                        <div>
-                                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '8px' }}>Variant Images</label>
-                                                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                                                                {comb.previews && comb.previews.map((preview, i) => (
-                                                                    <div key={i} style={{ position: 'relative' }}>
-                                                                        <img src={preview} style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
-                                                                        <button type="button" onClick={() => {
-                                                                            const newComb = [...combinations];
-                                                                            newComb[index].previews = newComb[index].previews.filter((_, idx) => idx !== i);
-                                                                            newComb[index].variantFiles = newComb[index].variantFiles.filter((_, idx) => idx !== i);
-                                                                            setCombinations(newComb);
-                                                                        }} style={{ position: 'absolute', top: '-5px', right: '-5px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}><X size={10} /></button>
-                                                                    </div>
-                                                                ))}
-                                                                <div style={{ width: '50px', height: '50px', border: '1px dashed #cbd5e1', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', cursor: 'pointer', position: 'relative' }}>
-                                                                    <input type="file" multiple accept="image/*" onChange={(e) => {
-                                                                        if (e.target.files && e.target.files.length > 0) {
-                                                                            const newComb = [...combinations];
-                                                                            const filesArray = Array.from(e.target.files);
-                                                                            const previewsArray = filesArray.map(f => URL.createObjectURL(f));
-                                                                            newComb[index].variantFiles = [...(newComb[index].variantFiles || []), ...filesArray];
-                                                                            newComb[index].previews = [...(newComb[index].previews || []), ...previewsArray];
-                                                                            setCombinations(newComb);
-                                                                        }
-                                                                    }} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }} />
-                                                                    <Plus size={16} color="#94a3b8" />
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
+                                <div style={{ display: activeTab === 'General' ? 'flex' : 'none', flexDirection: 'column', gap: '1.2rem' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                                        <div>
+                                            <label style={labelStyle}>Category</label>
+                                            <select required value={category} onChange={(e) => setCategory(e.target.value)} style={inputStyle}>
+                                                <option value="">-- Select Category --</option>
+                                                {categories.map(cat => (
+                                                    <option key={cat.id} value={cat.id}>{cat.category_name}</option>
                                                 ))}
-                                                <button type="button" onClick={handleAddCombination} style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 16px', background: '#f1f5f9', border: '1px dashed #cbd5e1', color: '#475569', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', justifyContent: 'center' }}><Plus size={14} /> Add Manual Combination</button>
+                                            </select>
+                                        </div>
+
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem' }}>
+
+                                        <div>
+                                            <label style={labelStyle}>Model No / Serial No</label>
+                                            <input type="text" placeholder="e.g., TX-DLX21" value={modelNo} onChange={(e) => setModelNo(e.target.value)} style={inputStyle} />
+                                        </div>
+
+                                    </div>
+
+
+                                    {/* ✏️ Bullet Features */}
+
+                                </div>
+
+
+
+
+                                <div style={{ display: activeTab === 'Variant' ? 'flex' : 'none', flexDirection: 'column', gap: '1.2rem' }}>
+                                    <div style={{ padding: '0 1.2rem' }}>
+
+                                        {/* Variant Checkboxes */}
+                                        <div style={{ padding: '0.5rem 0', marginBottom: '1rem', borderBottom: '1px solid #f1f5f9' }}>
+                                            <label style={{ ...labelStyle, marginBottom: '12px' }}>Enable Variations</label>
+                                            <div style={{ display: 'flex', gap: '2rem' }}>
+                                                {['Color', 'Size', 'Style'].map(type => (
+                                                    <label key={type} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 600, color: '#475569', cursor: 'pointer' }}>
+                                                        <input type="checkbox" checked={selectedVariants[type]} onChange={() => handleVariantCheckbox(type)} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#e11919' }} />
+                                                        {type}
+                                                    </label>
+                                                ))}
                                             </div>
                                         </div>
-                                    )}
-                                </div>
-                            </div>
 
-                            <div style={{ display: activeTab === 'Combinations' ? 'flex' : 'none', flexDirection: 'column', gap: '1.2rem' }}>
-                                <div style={{ padding: '0 1.2rem' }}>
-                                    {caseSpecsList.length > 0 && (
-                                        <div style={{ border: '1px solid #e2e8f0', padding: '1.2rem', borderRadius: '12px', background: '#f8fafc' }}>
-                                            <p style={{ fontSize: '0.78rem', fontWeight: 800, color: '#e11919', textTransform: 'uppercase', marginBottom: '12px' }}>Detailed Specification</p>
-                                            <Reorder.Group axis="y" values={caseSpecsList} onReorder={setCaseSpecsList} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', listStyle: 'none', padding: 0 }}>
-                                                {caseSpecsList.map((item) => (
-                                                    <Reorder.Item key={item.id} value={item} style={{ background: '#ffffff', padding: '10px', borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)', cursor: 'grab' }} whileDrag={{ scale: 1.02, boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                                                            <label style={{ ...labelStyle, marginBottom: 0 }}>{item.label}</label>
-                                                            <button type="button" onClick={() => handleDeleteSpecLabel(item.id)} style={{ padding: '4px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center' }}><Trash2 size={13} /></button>
-                                                        </div>
-                                                        <input type="text" value={item.value} onChange={(e) => {
-                                                            const updated = [...caseSpecsList];
-                                                            const target = updated.find(s => s.id === item.id);
-                                                            if (target) target.value = e.target.value;
-                                                            setCaseSpecsList(updated);
-                                                        }} style={inputStyle} />
-                                                    </Reorder.Item>
-                                                ))}
-                                            </Reorder.Group>
-                                            <button type="button" onClick={() => setIsLabelModalOpen(true)} style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', background: 'none', border: '1px dashed #e11919', color: '#e11919', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}><Plus size={14} /> Add Label</button>
+                                        {/* The Generated Combinations Table or List */}
+                                        {/* The Generated Combinations Section */}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', marginTop: '1rem' }}>
+                                            <p style={{ fontSize: '0.8rem', fontWeight: 800, color: '#e11919', textTransform: 'uppercase', margin: 0 }}>Generated Combinations</p>
+                                            <button type="button" onClick={handleAddCombination} style={{ padding: '8px 16px', background: 'linear-gradient(135deg, #e11919 0%, #900a0a 100%)', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 800, transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(225,25,25,0.2)' }} className="hover-lift">+ Add Combination</button>
                                         </div>
-                                    )}
+
+                                        {combinations.length > 0 && (
+                                            <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', overflow: 'hidden', background: '#fff' }}>
+                                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                                    <thead>
+                                                        <tr style={{ background: '#f8fafc' }}>
+                                                            {selectedVariants.Color && <th style={{ padding: '12px', fontSize: '0.7rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase' }}>Color</th>}
+                                                            {selectedVariants.Size && <th style={{ padding: '12px', fontSize: '0.7rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase' }}>Size</th>}
+                                                            {selectedVariants.Style && <th style={{ padding: '12px', fontSize: '0.7rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase' }}>Style</th>}
+                                                            <th style={{ padding: '12px', fontSize: '0.7rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase' }}>Images</th>
+                                                            <th style={{ padding: '12px', fontSize: '0.7rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase' }}>Details</th>
+                                                            <th style={{ padding: '12px', fontSize: '0.7rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', textAlign: 'center' }}>Remove</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {combinations.map((comb, index) => (
+                                                            <React.Fragment key={index}>
+                                                                <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
+                                                                    {selectedVariants.Color && (
+                                                                        <td style={{ padding: '12px' }}>
+                                                                            <input type="text" value={comb.Color} onChange={(e) => { const newComb = [...combinations]; newComb[index].Color = e.target.value; setCombinations(newComb); }} style={{ ...inputStyle, padding: '10px 14px', fontSize: '0.85rem', marginTop: 0, fontWeight: 600 }} placeholder="Color" />
+                                                                        </td>
+                                                                    )}
+                                                                    {selectedVariants.Size && (
+                                                                        <td style={{ padding: '12px' }}>
+                                                                            <input type="text" value={comb.Size} onChange={(e) => { const newComb = [...combinations]; newComb[index].Size = e.target.value; setCombinations(newComb); }} style={{ ...inputStyle, padding: '10px 14px', fontSize: '0.85rem', marginTop: 0, fontWeight: 600 }} placeholder="Size" />
+                                                                        </td>
+                                                                    )}
+                                                                    {selectedVariants.Style && (
+                                                                        <td style={{ padding: '12px' }}>
+                                                                            <input type="text" value={comb.Style} onChange={(e) => { const newComb = [...combinations]; newComb[index].Style = e.target.value; setCombinations(newComb); }} style={{ ...inputStyle, padding: '10px 14px', fontSize: '0.85rem', marginTop: 0, fontWeight: 600 }} placeholder="Style" />
+                                                                        </td>
+                                                                    )}
+                                                                    <td style={{ padding: '12px' }}>
+                                                                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                                                            {comb.previews && comb.previews.map((preview, i) => (
+                                                                                <div key={i} style={{ position: 'relative', width: '45px', height: '45px' }}>
+                                                                                    <img src={preview} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+
+                                                                                    {i > 0 && (
+                                                                                        <button type="button" onClick={() => {
+                                                                                            const newComb = [...combinations];
+                                                                                            const prev = [...newComb[index].previews];
+                                                                                            const files = [...(newComb[index].variantFiles || [])];
+                                                                                            [prev[i], prev[i - 1]] = [prev[i - 1], prev[i]];
+                                                                                            let temp = files[i];
+                                                                                            files[i] = files[i - 1];
+                                                                                            files[i - 1] = temp;
+                                                                                            newComb[index].previews = prev;
+                                                                                            newComb[index].variantFiles = files;
+                                                                                            setCombinations(newComb);
+                                                                                        }} style={{ position: 'absolute', bottom: '-4px', left: '-4px', background: '#38bdf8', color: '#fff', border: 'none', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '10px', zIndex: 10 }}>←</button>
+                                                                                    )}
+
+                                                                                    {i < (comb.previews || []).length - 1 && (
+                                                                                        <button type="button" onClick={() => {
+                                                                                            const newComb = [...combinations];
+                                                                                            const prev = [...newComb[index].previews];
+                                                                                            const files = [...(newComb[index].variantFiles || [])];
+                                                                                            [prev[i], prev[i + 1]] = [prev[i + 1], prev[i]];
+                                                                                            let tempR = files[i];
+                                                                                            files[i] = files[i + 1];
+                                                                                            files[i + 1] = tempR;
+                                                                                            newComb[index].previews = prev;
+                                                                                            newComb[index].variantFiles = files;
+                                                                                            setCombinations(newComb);
+                                                                                        }} style={{ position: 'absolute', bottom: '-4px', right: '-4px', background: '#38bdf8', color: '#fff', border: 'none', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '10px', zIndex: 10 }}>→</button>
+                                                                                    )}
+
+                                                                                    <button type="button" onClick={() => {
+                                                                                        const newComb = [...combinations];
+                                                                                        newComb[index].previews = newComb[index].previews.filter((_, idx) => idx !== i);
+                                                                                        newComb[index].variantFiles = (newComb[index].variantFiles || []).filter((_, idx) => idx !== i);
+                                                                                        setCombinations(newComb);
+                                                                                    }} style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><X size={10} /></button>
+                                                                                </div>
+                                                                            ))}
+                                                                            <div style={{ width: '45px', height: '45px', border: '2px dashed #cbd5e1', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', position: 'relative', cursor: 'pointer' }}>
+                                                                                <input type="file" multiple accept="image/*" onChange={(e) => {
+                                                                                    if (e.target.files && e.target.files.length > 0) {
+                                                                                        const newComb = [...combinations];
+                                                                                        const filesArray = Array.from(e.target.files);
+                                                                                        const previewsArray = filesArray.map(f => URL.createObjectURL(f));
+                                                                                        newComb[index].variantFiles = [...(newComb[index].variantFiles || []), ...filesArray];
+                                                                                        newComb[index].previews = [...(newComb[index].previews || []), ...previewsArray];
+                                                                                        setCombinations(newComb);
+                                                                                    }
+                                                                                }} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }} />
+                                                                                <Plus size={18} color="#94a3b8" />
+                                                                            </div>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td style={{ padding: '12px' }}>
+                                                                        <button type="button" onClick={() => { setEditingVariantIdx(index); setIsVariantModalOpen(true); }} style={{ padding: '8px 14px', background: 'rgba(225,25,25,0.08)', color: '#e11919', border: '1px solid rgba(225,25,25,0.2)', borderRadius: '10px', fontSize: '0.72rem', fontWeight: 800, cursor: 'pointer' }} className="hover-lift">Configure Details</button>
+                                                                    </td>
+                                                                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                                                                        <button type="button" onClick={() => setCombinations(combinations.filter((_, i) => i !== index))} style={{ padding: '10px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '12px', cursor: 'pointer' }} className="hover-lift"><Trash2 size={18} /></button>
+                                                                    </td>
+                                                                </tr>
+                                                            </React.Fragment>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
+
+                                <div style={{ display: activeTab === 'Product Images' ? 'flex' : 'none', flexDirection: 'column', gap: '1.2rem' }}>
+                                    <div style={{ padding: '0 1.2rem' }}>
+                                        <div style={{ border: '1px solid #e2e8f0', padding: '1.5rem', borderRadius: '12px', background: '#f8fafc' }}>
+
+                                            <p style={{ fontSize: '0.78rem', fontWeight: 800, color: '#e11919', textTransform: 'uppercase', marginBottom: '12px' }}>Product Images</p>
+
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+                                                {productImages.map((img, index) => (
+                                                    <div key={index} style={{ position: 'relative', border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden', background: '#fff', aspectRatio: '1' }}>
+                                                        <img src={img.preview} alt={`Product ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                        <button type="button" onClick={() => {
+                                                            setProductImages(productImages.filter((_, i) => i !== index));
+                                                        }} style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(239,68,68,0.9)', color: '#fff', border: 'none', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>×</button>
+                                                    </div>
+                                                ))}
+
+                                                <div style={{ border: '2px dashed #cbd5e1', borderRadius: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', aspectRatio: '1', position: 'relative', cursor: 'pointer', background: '#fff', transition: 'all 0.2s' }}>
+                                                    <input type="file" multiple accept="image/*" onChange={(e) => {
+                                                        const files = Array.from(e.target.files);
+                                                        const newImages = files.map(file => ({
+                                                            file,
+                                                            preview: URL.createObjectURL(file)
+                                                        }));
+                                                        setProductImages([...productImages, ...newImages]);
+                                                        e.target.value = '';
+                                                    }} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }} />
+                                                    <Plus size={22} color="#94a3b8" />
+                                                    <span style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '4px', fontWeight: 600 }}>Add Image</span>
+                                                </div>
+                                            </div>
+
+                                            <p style={{ fontSize: '0.72rem', color: '#9ca3af', marginBottom: '1.2rem' }}>{productImages.length} image{productImages.length !== 1 ? 's' : ''} added</p>
+
+                                            {/* Hover Image Option */}
+                                            <div style={{ marginTop: '1.5rem', borderTop: '1px solid #e2e8f0', paddingTop: '1.2rem' }}>
+                                                <p style={{ fontSize: '0.78rem', fontWeight: 800, color: '#e11919', textTransform: 'uppercase', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    Hover Image <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 500, textTransform: 'none' }}>(Displayed on listing hover)</span>
+                                                </p>
+                                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                                    <div style={{
+                                                        width: '120px',
+                                                        height: '120px',
+                                                        border: hoverImage ? '1px solid #e2e8f0' : '2px dashed #cbd5e1',
+                                                        borderRadius: '12px',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        position: 'relative',
+                                                        background: '#fff',
+                                                        overflow: 'hidden',
+                                                        cursor: 'pointer'
+                                                    }}>
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            onChange={(e) => handleHoverImageChange(e.target.files[0])}
+                                                            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', zIndex: 10 }}
+                                                        />
+                                                        {hoverImage ? (
+                                                            <>
+                                                                <img src={hoverImage} alt="Hover preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.5)', color: '#fff', fontSize: '10px', padding: '4px', textAlign: 'center' }}>Change</div>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Plus size={20} color="#94a3b8" />
+                                                                <span style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '4px', fontWeight: 600 }}>Set Hover</span>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                    {hoverImage && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => { setHoverImage(''); setHoverImageFile(null); }}
+                                                            style={{ padding: '8px 12px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
+                                                        >
+                                                            Remove
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
 
 
 
-                            <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', paddingTop: '1.5rem' }}>
-                                <button type="button" onClick={() => {
-                                    const tabs = ['General', 'Specifications', 'Features', 'Variant', 'Combinations'];
-                                    const currIndex = tabs.indexOf(activeTab);
-                                    if (currIndex > 0) setActiveTab(tabs[currIndex - 1]);
-                                }} style={{ padding: '14px 28px', background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '12px', fontWeight: 700, cursor: activeTab === 'General' ? 'not-allowed' : 'pointer', textTransform: 'uppercase', letterSpacing: '1px', opacity: activeTab === 'General' ? 0 : 1, pointerEvents: activeTab === 'General' ? 'none' : 'auto', transition: 'all 0.2s' }}>Back</button>
 
-                                {activeTab !== 'Combinations' ? (
+                                <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', paddingTop: '1.5rem' }}>
                                     <button type="button" onClick={() => {
-                                        const tabs = ['General', 'Specifications', 'Features', 'Variant', 'Combinations'];
-                                        setActiveTab(tabs[tabs.indexOf(activeTab) + 1]);
-                                    }} style={{ padding: '14px 32px', background: '#1e293b', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px', transition: 'all 0.2s' }}>Next Step</button>
-                                ) : (
-                                    <button type="submit" className="btn-glowing" style={{ padding: '14px 32px', background: 'linear-gradient(135deg, #e11919 0%, #900a0a 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', boxShadow: '0 8px 24px rgba(225, 25, 25, 0.2)', textTransform: 'uppercase', letterSpacing: '1px', transition: 'all 0.2s' }}>{productToEdit ? 'Update Product' : 'Submit Product'}</button>
-                                )}
-                            </div>
-                        </form>
+                                        const tabs = ['General', 'Variant', 'Product Images'];
+                                        const currIndex = tabs.indexOf(activeTab);
+                                        if (currIndex > 0) setActiveTab(tabs[currIndex - 1]);
+                                    }} style={{ padding: '14px 28px', background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '12px', fontWeight: 700, cursor: activeTab === 'General' ? 'not-allowed' : 'pointer', textTransform: 'uppercase', letterSpacing: '1px', opacity: activeTab === 'General' ? 0 : 1, pointerEvents: activeTab === 'General' ? 'none' : 'auto', transition: 'all 0.2s' }}>Back</button>
+
+                                    {activeTab !== 'Product Images' ? (
+                                        <button type="button" onClick={() => {
+                                            const tabs = ['General', 'Variant', 'Product Images'];
+                                            setActiveTab(tabs[tabs.indexOf(activeTab) + 1]);
+                                        }} style={{ padding: '14px 32px', background: '#1e293b', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px', transition: 'all 0.2s' }}>Next Step</button>
+                                    ) : (
+                                        <button type="submit" className="btn-glowing" style={{ padding: '14px 32px', background: 'linear-gradient(135deg, #e11919 0%, #900a0a 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', boxShadow: '0 8px 24px rgba(225, 25, 25, 0.2)', textTransform: 'uppercase', letterSpacing: '1px', transition: 'all 0.2s' }}>{productToEdit ? 'Update Product' : 'Submit Product'}</button>
+                                    )}
+                                </div>
+                            </form>
+                        </div>
                     </motion.div>
                 </motion.div>
             )}
 
             {isLabelModalOpen && (
                 <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.5)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', backdropFilter: 'blur(3px)' }}>
-                    <div style={{ background: '#ffffff', padding: '1.5rem', borderRadius: '12px', width: '320px', boxShadow: '0 10px 30px rgba(0,0,0,0.15)' }}>
-                        <p style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e293b', marginBottom: '10px' }}>Add Specification Label</p>
-                        <input type="text" placeholder="e.g., Cooling Type" value={newLabelTitle} onChange={(e) => setNewLabelTitle(e.target.value)} style={{ ...inputStyle, background: '#ffffff', border: '1px solid #d1d5db', marginBottom: '12px' }} />
+                    <div style={{ background: 'var(--bg-primary)', padding: '1.5rem', borderRadius: '12px', width: '320px', boxShadow: '0 10px 30px rgba(0,0,0,0.15)', border: '1px solid var(--border)' }}>
+                        <p style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '10px' }}>Add Specification Label</p>
+                        <input type="text" placeholder="e.g., Cooling Type" value={newLabelTitle} onChange={(e) => setNewLabelTitle(e.target.value)} style={{ ...inputStyle, background: 'var(--bg-secondary)', border: '1px solid var(--border)', marginBottom: '12px' }} />
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                            <button type="button" onClick={() => setIsLabelModalOpen(false)} style={{ padding: '6px 12px', border: '1px solid #d1d5db', background: '#f3f4f6', color: '#4b5563', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer' }}>Cancel</button>
+                            <button type="button" onClick={() => setIsLabelModalOpen(false)} style={{ padding: '6px 12px', border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-muted)', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer' }}>Cancel</button>
                             <button type="button" onClick={handleSaveSpecLabel} style={{ padding: '6px 12px', border: 'none', background: '#e11919', color: '#ffffff', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>Save</button>
                         </div>
                     </div>
                 </div>
             )}
+
+            {/* 💎 Variant Configuration Modal */}
+            <AnimatePresence>
+                {isVariantModalOpen && editingVariantIdx !== null && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        style={backdropStyle}
+                    >
+                        <motion.div
+                            initial={{ y: 50, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            exit={{ y: 50, opacity: 0 }}
+                            style={{ ...modalStyle, margin: '0 auto', maxWidth: '1200px' }}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '1px solid var(--border)', paddingBottom: '1.5rem' }}>
+                                <div>
+                                    <h4 style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>Configure Variant Details</h4>
+                                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                        Setting up: {combinations[editingVariantIdx].Color} {combinations[editingVariantIdx].Size} {combinations[editingVariantIdx].Style}
+                                    </p>
+                                </div>
+                                <button type="button" onClick={() => setIsVariantModalOpen(false)} style={{ background: 'var(--bg-secondary)', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', borderRadius: '50%', width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="hover-lift"><X size={24} /></button>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '25px' }}>
+                                <div>
+                                    <label style={labelStyle}>Model Name</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Specific Model Name"
+                                        value={combinations[editingVariantIdx].modelName || ''}
+                                        onChange={(e) => {
+                                            const newComb = [...combinations];
+                                            newComb[editingVariantIdx].modelName = e.target.value;
+                                            setCombinations(newComb);
+                                        }}
+                                        style={inputStyle}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>Product Name</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Product Display Name"
+                                        value={combinations[editingVariantIdx].productName || ''}
+                                        onChange={(e) => {
+                                            const newComb = [...combinations];
+                                            newComb[editingVariantIdx].productName = e.target.value;
+                                            setCombinations(newComb);
+                                        }}
+                                        style={inputStyle}
+                                    />
+                                </div>
+                            </div>
+
+                            <div style={{ marginBottom: '30px' }}>
+                                <label style={labelStyle}>Variant Description</label>
+                                <textarea
+                                    placeholder="Enter unique description for this variant..."
+                                    value={combinations[editingVariantIdx].description || ''}
+                                    onChange={(e) => {
+                                        const newComb = [...combinations];
+                                        newComb[editingVariantIdx].description = e.target.value;
+                                        setCombinations(newComb);
+                                    }}
+                                    style={{ ...inputStyle, height: '120px', resize: 'none' }}
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+                                {/* Filters */}
+                                <div>
+                                    <p style={{ fontSize: '0.95rem', fontWeight: 900, color: '#e11919', marginBottom: '15px', textTransform: 'uppercase', letterSpacing: '1.2px' }}>Categorization Filters</p>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+                                        {(filtersList || []).map((f) => {
+                                            const vFilter = (combinations[editingVariantIdx].filters || []).find(vf => vf.id === f.id);
+                                            return (
+                                                <div key={f.id}>
+                                                    <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: '6px', textTransform: 'uppercase' }}>{f.label}</label>
+                                                    <select
+                                                        value={vFilter ? vFilter.value : ''}
+                                                        onChange={(e) => {
+                                                            const newComb = [...combinations];
+                                                            if (!newComb[editingVariantIdx].filters) newComb[editingVariantIdx].filters = [];
+                                                            const vfIdx = newComb[editingVariantIdx].filters.findIndex(vf => vf.id === f.id);
+                                                            if (vfIdx !== -1) {
+                                                                newComb[editingVariantIdx].filters[vfIdx].value = e.target.value;
+                                                            } else {
+                                                                newComb[editingVariantIdx].filters.push({ id: f.id, value: e.target.value });
+                                                            }
+                                                            setCombinations(newComb);
+                                                        }}
+                                                        style={{ ...inputStyle, padding: '12px 16px', fontSize: '0.95rem' }}
+                                                    >
+                                                        <option value="">-- No Selection --</option>
+                                                        {(f.options || []).map(opt => (
+                                                            <option key={opt.id} value={opt.filter_value}>{opt.filter_value}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Features */}
+                                <div>
+                                    <p style={{ fontSize: '0.95rem', fontWeight: 900, color: '#e11919', marginBottom: '15px', textTransform: 'uppercase', letterSpacing: '1.2px' }}>Highlight Features</p>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <Reorder.Group
+                                            axis="y"
+                                            values={combinations[editingVariantIdx].features || []}
+                                            onReorder={(newOrder) => {
+                                                const newComb = [...combinations];
+                                                newComb[editingVariantIdx].features = newOrder;
+                                                setCombinations(newComb);
+                                            }}
+                                            style={{ display: 'flex', flexDirection: 'column', gap: '8px', listStyle: 'none', padding: 0 }}
+                                        >
+                                            {(combinations[editingVariantIdx].features || []).map((feat, featIdx) => (
+                                                <FeatureReorderItem
+                                                    key={`${featIdx}-${feat}`}
+                                                    feat={feat}
+                                                    featIdx={featIdx}
+                                                    combinations={combinations}
+                                                    editingVariantIdx={editingVariantIdx}
+                                                    setCombinations={setCombinations}
+                                                    inputStyle={inputStyle}
+                                                />
+                                            ))}
+                                        </Reorder.Group>
+                                        <button type="button" onClick={() => {
+                                            const newComb = [...combinations];
+                                            newComb[editingVariantIdx].features = [...(newComb[editingVariantIdx].features || []), ''];
+                                            setCombinations(newComb);
+                                        }} style={{ alignSelf: 'flex-start', fontSize: '0.8rem', color: '#e11919', fontWeight: 800, background: 'none', border: 'none', cursor: 'pointer', marginTop: '5px' }}>+ Add Bullet Point</button>
+                                    </div>
+                                </div>
+
+                                {/* Technical Specifications */}
+                                <div>
+                                    <p style={{ fontSize: '0.95rem', fontWeight: 900, color: '#e11919', marginBottom: '15px', textTransform: 'uppercase', letterSpacing: '1.2px' }}>Technical Specifications</p>
+                                    <Reorder.Group
+                                        axis="y"
+                                        values={combinations[editingVariantIdx].specs || []}
+                                        onReorder={(newOrder) => {
+                                            const newComb = [...combinations];
+                                            newComb[editingVariantIdx].specs = newOrder;
+                                            setCombinations(newComb);
+                                        }}
+                                        style={{ display: 'flex', flexDirection: 'column', gap: '12px', listStyle: 'none', padding: 0 }}
+                                    >
+                                        {(combinations[editingVariantIdx].specs || []).map((s) => (
+                                            <SpecReorderItem
+                                                key={s.id}
+                                                s={s}
+                                                combinations={combinations}
+                                                editingVariantIdx={editingVariantIdx}
+                                                setCombinations={setCombinations}
+                                                inputStyle={inputStyle}
+                                                handleDeleteSpecLabel={handleDeleteSpecLabel}
+                                            />
+                                        ))}
+                                    </Reorder.Group>
+                                    <button type="button" onClick={() => setIsLabelModalOpen(true)} style={{ alignSelf: 'flex-start', fontSize: '0.8rem', color: '#e11919', fontWeight: 800, background: 'none', border: 'none', cursor: 'pointer', marginTop: '15px' }}>+ New Specification Field</button>
+                                </div>
+                            </div>
+
+                            <div style={{ marginTop: '3rem', borderTop: '1px solid var(--border)', paddingTop: '2rem', display: 'flex', justifyContent: 'center' }}>
+                                <button type="button" onClick={() => setIsVariantModalOpen(false)} style={{ padding: '16px 60px', background: 'linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%)', color: '#fff', border: 'none', borderRadius: '18px', fontWeight: 900, cursor: 'pointer', fontSize: '1.1rem', boxShadow: '0 15px 35px rgba(225,25,25,0.2)' }} className="btn-glowing">Done Configuring</button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </AnimatePresence>
     );
 };
 
-const backdropStyle = { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(15, 23, 42, 0.4)', zIndex: 999, display: 'flex', justifyContent: 'center', alignItems: 'center', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' };
-const modalStyle = { background: '#ffffff', padding: '2.5rem', borderRadius: '24px', width: '95%', maxWidth: '1050px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 60px -12px rgba(0,0,0,0.15)', position: 'relative', border: '1px solid rgba(255,255,255,0.7)' };
-const headerStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.8rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '14px' };
-const labelStyle = { display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#1e293b', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' };
-const inputStyle = { width: '100%', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '12px', fontSize: '0.88rem', outline: 'none', margin: 0, background: '#ffffff', boxSizing: 'border-box', fontFamily: 'inherit', transition: 'all 0.2s', color: '#1e293b' };
-const submitBtnStyle = { width: '100%', padding: '14px', background: 'linear-gradient(135deg, #e11919 0%, #900a0a 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', marginTop: '1.5rem', boxShadow: '0 8px 24px rgba(225, 25, 25, 0.2)', textTransform: 'uppercase', letterSpacing: '0.5px', transition: 'transform 0.2s ease, filter 0.2s ease' };
+const backdropStyle = { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'var(--bg-primary)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflowY: 'auto', transition: 'all 0.3s ease' };
+const modalStyle = { background: 'var(--bg-primary)', color: 'var(--text-main)', padding: '3rem 2rem 6rem 2rem', width: '100vw', minHeight: '100vh', position: 'relative', border: 'none', transition: 'all 0.3s ease' };
+const headerStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', paddingBottom: '20px', borderBottom: '2px solid var(--border)' };
+const labelStyle = { display: 'block', fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1px' };
+const inputStyle = { width: '100%', padding: '16px 20px', border: '2px solid var(--border)', borderRadius: '16px', fontSize: '1rem', outline: 'none', margin: 0, background: 'var(--bg-secondary)', boxSizing: 'border-box', fontFamily: 'inherit', transition: 'all 0.3s ease', color: 'var(--text-main)' };
+const submitBtnStyle = { width: '100%', padding: '18px', background: 'linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%)', color: '#fff', border: 'none', borderRadius: '16px', fontWeight: 900, cursor: 'pointer', marginTop: '2rem', boxShadow: '0 10px 30px rgba(225, 25, 25, 0.25)', textTransform: 'uppercase', letterSpacing: '1.5px', fontSize: '1rem', transition: 'all 0.3s ease' };
+
+// 🛠️ Helper Components for Drag and Drop reliability
+const FeatureReorderItem = ({ feat, featIdx, combinations, editingVariantIdx, setCombinations, inputStyle }) => {
+    const dragControls = useDragControls();
+    return (
+        <Reorder.Item
+            value={feat}
+            dragListener={false}
+            dragControls={dragControls}
+            whileDrag={{ scale: 1.02, boxShadow: '0 8px 30px rgba(0,0,0,0.15)', zIndex: 100 }}
+            style={{ display: 'flex', gap: '10px', alignItems: 'center', background: 'var(--bg-secondary)', padding: '10px', borderRadius: '14px', border: '1px solid var(--border)', cursor: 'default' }}
+        >
+            <GripVertical
+                size={16}
+                color="var(--text-muted)"
+                style={{ cursor: 'grab', touchAction: 'none' }}
+                onPointerDown={(e) => dragControls.start(e)}
+            />
+            <input
+                type="text"
+                placeholder="Feature bullet point..."
+                value={feat}
+                onChange={(e) => {
+                    const newComb = [...combinations];
+                    newComb[editingVariantIdx].features[featIdx] = e.target.value;
+                    setCombinations(newComb);
+                }}
+                style={{ ...inputStyle, padding: '12px 16px', fontSize: '0.95rem', background: 'transparent', border: 'none', flex: 1, margin: 0 }}
+            />
+            <button type="button" onClick={() => {
+                const newComb = [...combinations];
+                newComb[editingVariantIdx].features = newComb[editingVariantIdx].features.filter((_, i) => i !== featIdx);
+                setCombinations(newComb);
+            }} style={{ padding: '10px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '12px', cursor: 'pointer' }}><Trash2 size={16} /></button>
+        </Reorder.Item>
+    );
+};
+
+const SpecReorderItem = ({ s, combinations, editingVariantIdx, setCombinations, inputStyle, handleDeleteSpecLabel }) => {
+    const dragControls = useDragControls();
+    return (
+        <Reorder.Item
+            value={s}
+            dragListener={false}
+            dragControls={dragControls}
+            whileDrag={{ scale: 1.01, boxShadow: '0 10px 30px rgba(0,0,0,0.15)', zIndex: 100 }}
+            style={{ background: 'var(--bg-secondary)', padding: '18px', borderRadius: '20px', border: '1px solid var(--border)', cursor: 'default' }}
+        >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <GripVertical
+                            size={16}
+                            color="var(--text-muted)"
+                            style={{ cursor: 'grab', touchAction: 'none' }}
+                            onPointerDown={(e) => dragControls.start(e)}
+                        />
+                        <label style={{ fontSize: '0.85rem', fontWeight: 900, color: 'var(--text-main)', textTransform: 'uppercase' }}>{s.label}</label>
+                    </div>
+                    <button type="button" onClick={() => {
+                        if (window.confirm(`Permanently remove "${s.label}" field for all variants and this category?`)) {
+                            handleDeleteSpecLabel(s.id);
+                        }
+                    }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={14} /></button>
+                </div>
+                <input
+                    type="text"
+                    value={s.value}
+                    onChange={(e) => {
+                        const newComb = [...combinations];
+                        const spIdx = newComb[editingVariantIdx].specs.findIndex(sp => sp.id === s.id);
+                        if (spIdx !== -1) {
+                            newComb[editingVariantIdx].specs[spIdx].value = e.target.value;
+                            setCombinations(newComb);
+                        }
+                    }}
+                    style={{ ...inputStyle, background: 'var(--bg-primary)', border: '1px solid var(--border)', margin: 0 }}
+                    placeholder={`Enter ${s.label}...`}
+                />
+            </div>
+        </Reorder.Item>
+    );
+};
 
 export default AddProductModal;

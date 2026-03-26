@@ -1,0 +1,12 @@
+﻿[dotenv@17.3.1] injecting env (6) from .env -- tip: ≡ƒñû agentic secret storage: https://dotenvx.com/as2
+Testing category insert...
+Successfully connected to the PostgreSQL database.
+Category inserted: { id: 6, parent_id: 0, category_name: 'Test Category 1774436033948' }
+Testing spec_label insert...
+Spec label inserted: {
+  id: 65,
+  category_id: 1,
+  spec_label: 'Test Label',
+  is_deleted: false,
+  spec_options: 'Option1,Option2'
+}

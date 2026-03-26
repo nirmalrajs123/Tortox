@@ -80,10 +80,10 @@ const ProductCard = ({ product }) => {
             {/* Content */}
             <div>
                 <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#111827', marginBottom: '6px' }}>
-                    {product.name}
+                    {product.product_name || product.name || 'Unnamed Product'}
                 </h3>
                 <p style={{ fontSize: '0.85rem', color: '#4b5563', lineHeight: '1.4', marginBottom: '15px' }}>
-                    {product.description}
+                    {product.product_description || product.description || 'No description available.'}
                 </p>
             </div>
 
@@ -94,18 +94,31 @@ const ProductCard = ({ product }) => {
                 flexWrap: 'wrap',
                 gap: '6px'
             }}>
-                {Object.entries(product.specs).map(([key, value]) => (
-                    <span key={key} style={{
-                        background: 'rgba(255, 71, 26, 0.04)',
-                        border: '1px solid rgba(255, 71, 26, 0.15)',
-                        padding: '4px 8px',
-                        borderRadius: '6px',
-                        fontSize: '0.7rem',
-                        color: '#ff6a33'
-                    }}>
-                        {key.toUpperCase()}: {value}
-                    </span>
-                ))}
+                {(() => {
+                    let parsedSpecs = {};
+                    try {
+                        parsedSpecs = typeof product.specs === 'string' ? JSON.parse(product.specs) : (product.specs || {});
+                    } catch (e) {}
+                    if (parsedSpecs && typeof parsedSpecs === 'object') {
+                        return Object.entries(parsedSpecs).slice(0, 3).map(([key, item]) => {
+                            const val = item && typeof item === 'object' ? item.value : item;
+                            if (!val) return null;
+                            return (
+                                <span key={key} style={{
+                                    background: 'rgba(255, 71, 26, 0.04)',
+                                    border: '1px solid rgba(255, 71, 26, 0.15)',
+                                    padding: '4px 8px',
+                                    borderRadius: '6px',
+                                    fontSize: '0.7rem',
+                                    color: '#ff6a33'
+                                }}>
+                                    {key.replace(/([A-Z])/g, ' $1').toUpperCase().trim()}: {val}
+                                </span>
+                            );
+                        });
+                    }
+                    return null;
+                })()}
             </div>
 
             {/* footer price */}

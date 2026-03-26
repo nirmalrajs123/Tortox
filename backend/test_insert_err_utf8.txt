@@ -1,0 +1,47 @@
+﻿[dotenv@17.3.1] injecting env (6) from .env -- tip: ≡ƒöÉ encrypt with Dotenvx: https://dotenvx.com
+Testing category insert...
+Successfully connected to the PostgreSQL database.
+node : Category error: null 
+value in column "id" of 
+relation "categorys" violates 
+not-null constraint
+At line:1 char:1
++ node test_insert_v2.js 2>&1 
+| Out-File -FilePath 
+test_insert_err_utf8 ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : 
+    NotSpecified: (Category   
+  error:...null constraint:   
+ String) [], RemoteExcepti    
+on
+    + FullyQualifiedErrorId : 
+    NativeCommandError
+ 
+error: null value in column 
+"id" of relation "categorys" 
+violates not-null constraint
+    at C:\Tortox\backend\node_
+modules\pg-pool\index.js:45:11
+    at process.processTicksAnd
+Rejections (node:internal/proc
+ess/task_queues:103:5)
+    at async testInsert (C:\To
+rtox\backend\test_insert_v2.js
+:7:25)
+Testing spec_label insert...
+Successfully connected to the PostgreSQL database.
+Spec label error: column 
+"spec_options" of relation 
+"spec_label" does not exist
+error: column "spec_options" 
+of relation "spec_label" does 
+not exist
+    at C:\Tortox\backend\node_
+modules\pg-pool\index.js:45:11
+    at process.processTicksAnd
+Rejections (node:internal/proc
+ess/task_queues:103:5)
+    at async testInsert (C:\To
+rtox\backend\test_insert_v2.js
+:19:25)
