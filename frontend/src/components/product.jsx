@@ -49,13 +49,13 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
 
     // 🧼 Manual State Additions flawed flawless flaw flawlessly setup 
     const handleAddCombination = () => {
-        setCombinations([...combinations, {
+        setCombinations(prev => [...prev, {
             Color: '', Size: '', Style: '',
             variantFiles: [], previews: [],
-            features: [''], // Core features for this variant
-            filters: filtersList.map(f => ({ ...f })),
-            specs: caseSpecsList.map(s => ({ ...s })),
-            description: '', // Variant description
+            features: [{ id: Date.now() + Math.random().toString(36).substring(2, 9), text: '' }],
+            filters: (filtersList || []).map(f => ({ ...f })),
+            specs: (caseSpecsList || []).map(s => ({ ...s })),
+            description: '',
             modelName: '',
             productName: ''
         }]);
@@ -77,9 +77,9 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
                     newCombs.push({
                         Color: c, Size: s, Style: st,
                         variantFiles: [], previews: [],
-                        features: [''],
-                        filters: filtersList.map(f => ({ ...f })),
-                        specs: caseSpecsList.map(s => ({ ...s })),
+                        features: [{ id: Date.now() + Math.random().toString(36).substring(2, 9), text: '' }],
+                        filters: (filtersList || []).map(f => ({ ...f })),
+                        specs: (caseSpecsList || []).map(s => ({ ...s })),
                         description: '',
                         modelName: '',
                         productName: ''
@@ -270,6 +270,7 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
             if (productToEdit.combinations && productToEdit.combinations.length > 0) {
                 const hydratedCombs = productToEdit.combinations.map(c => ({
                     ...c,
+                    features: (c.features || []).map(f => typeof f === 'string' ? { id: crypto.randomUUID(), text: f } : f),
                     previews: (c.previews || []).map(p => {
                         if (!p) return '';
                         if (p.startsWith('http')) return p;
@@ -493,7 +494,7 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
         // 📸 Append Combinations structured matrix
         formData.append('combinations', JSON.stringify(combinations.map(c => ({
             Color: c.Color, Size: c.Size, Style: c.Style,
-            features: c.features,
+            features: (c.features || []).map(f => typeof f === 'object' ? f.text : f),
             filters: c.filters,
             specs: (c.specs || []).map((s, sIdx) => ({
                 ...s,
@@ -536,8 +537,10 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
             if (img.file) {
                 formData.append('product_images', img.file);
             } else if (img.preview) {
-                // p.replace(/^https?:\/\/[^\/]+/i, '')
-                existingImages.push(img.preview.replace(/^https?:\/\/[^\/]+/i, ''));
+                const purePath = img.preview.replace(/^https?:\/\/[^\/]+/i, '').trim();
+                if (purePath && purePath !== '/') {
+                    existingImages.push(purePath);
+                }
             }
         });
         formData.append('existing_product_images', JSON.stringify(existingImages));
@@ -592,27 +595,28 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
                         onClick={(e) => e.stopPropagation()}
                         style={modalStyle}
                     >
-                        <div style={{ maxWidth: '1300px', margin: '0 auto', width: '100%' }}>
+                        <div style={{ width: '100%', padding: '0 3rem' }}>
                             <div style={headerStyle}>
                                 <h3 style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.5px' }}>{productToEdit ? 'Edit Product' : 'Add New Product'}</h3>
                                 <button type="button" onClick={onClose} style={{ background: 'var(--bg-secondary)', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }} className="hover-lift"><X size={24} /></button>
                             </div>
 
                             <div style={{ marginBottom: '2.5rem' }}>
-                                <p style={{ fontSize: '0.95rem', color: '#64748b', fontWeight: 500 }}>{productToEdit ? 'Update existing product details, variants, and configurations.' : 'Create a new product listing with multi-variant support and detailed specifications.'}</p>
+                                <p style={{ fontSize: '0.95rem', color: 'var(--text-muted)', fontWeight: 500 }}>{productToEdit ? 'Update existing product details, variants, and configurations.' : 'Create a new product listing with multi-variant support'}</p>
                             </div>
 
 
                             {statusMessage && (
-                                <div style={{ padding: '10px 14px', borderRadius: '8px', background: statusType === 'success' ? '#dcfce7' : '#fee2e2', color: statusType === 'success' ? '#166534' : '#ef4444', fontSize: '0.85rem', fontWeight: 600, border: statusType === 'success' ? '1px solid #bcf0da' : '1px solid #fecaca', marginBottom: '8px', margin: '0 1.5rem' }}>
+                                <div className="telemetry" style={{ padding: '16px 20px', borderRadius: '12px', background: statusType === 'success' ? 'rgba(16,185,129,0.08)' : 'rgba(225,25,25,0.08)', color: statusType === 'success' ? '#10b981' : 'var(--accent-primary)', fontSize: '0.8rem', fontWeight: 700, border: '1px solid var(--border-ghost)', marginBottom: '1.5rem', margin: '0 1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'currentColor', boxShadow: '0 0 10px currentColor' }} />
                                     {statusMessage}
                                 </div>
                             )}
 
                             <form onSubmit={handleAddProduct} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                                <div style={{ display: 'flex', gap: '8px', borderBottom: '2px solid #f1f5f9', paddingBottom: '12px', marginBottom: '1.5rem', overflowX: 'auto', whiteSpace: 'nowrap' }}>
+                                <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-ghost)', paddingBottom: '16px', marginBottom: '1.5rem', overflowX: 'auto' }}>
                                     {['General', 'Variant', 'Product Images'].map((t) => (
-                                        <button key={t} type="button" onClick={() => setActiveTab(t)} style={{ padding: '8px 16px', background: activeTab === t ? 'linear-gradient(135deg, #e11919 0%, #900a0a 100%)' : 'none', color: activeTab === t ? '#fff' : '#6b7280', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700, transition: 'all 0.2s', boxShadow: activeTab === t ? '0 4px 12px rgba(225,25,25,0.2)' : 'none' }}>{t}</button>
+                                        <button key={t} type="button" onClick={() => setActiveTab(t)} className="telemetry" style={{ padding: '10px 24px', background: activeTab === t ? 'var(--accent-primary)' : 'transparent', color: activeTab === t ? '#fff' : 'var(--text-dim)', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 800, transition: 'all 0.2s', textTransform: 'uppercase', letterSpacing: '1px' }}>{t}</button>
                                     ))}
                                 </div>
 
@@ -651,12 +655,12 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
                                     <div style={{ padding: '0 1.2rem' }}>
 
                                         {/* Variant Checkboxes */}
-                                        <div style={{ padding: '0.5rem 0', marginBottom: '1rem', borderBottom: '1px solid #f1f5f9' }}>
-                                            <label style={{ ...labelStyle, marginBottom: '12px' }}>Enable Variations</label>
-                                            <div style={{ display: 'flex', gap: '2rem' }}>
+                                        <div style={{ padding: '0.5rem 0', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-ghost)' }}>
+                                            <label style={{ ...labelStyle, marginBottom: '16px' }}>Enable Variations</label>
+                                            <div style={{ display: 'flex', gap: '2.5rem' }}>
                                                 {['Color', 'Size', 'Style'].map(type => (
-                                                    <label key={type} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 600, color: '#475569', cursor: 'pointer' }}>
-                                                        <input type="checkbox" checked={selectedVariants[type]} onChange={() => handleVariantCheckbox(type)} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#e11919' }} />
+                                                    <label key={type} className="telemetry" style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-dim)', cursor: 'pointer', textTransform: 'uppercase' }}>
+                                                        <input type="checkbox" checked={selectedVariants[type]} onChange={() => handleVariantCheckbox(type)} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--accent-primary)', background: 'var(--bg-high)', border: '1px solid var(--border)' }} />
                                                         {type}
                                                     </label>
                                                 ))}
@@ -665,9 +669,9 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
 
                                         {/* The Generated Combinations Table or List */}
                                         {/* The Generated Combinations Section */}
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', marginTop: '1rem' }}>
-                                            <p style={{ fontSize: '0.8rem', fontWeight: 800, color: '#e11919', textTransform: 'uppercase', margin: 0 }}>Generated Combinations</p>
-                                            <button type="button" onClick={handleAddCombination} style={{ padding: '8px 16px', background: 'linear-gradient(135deg, #e11919 0%, #900a0a 100%)', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 800, transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(225,25,25,0.2)' }} className="hover-lift">+ Add Combination</button>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', marginTop: '1rem' }}>
+                                            <p className="telemetry" style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--accent-primary)', textTransform: 'uppercase', margin: 0, letterSpacing: '1px' }}>Generated Combinations</p>
+                                            <button type="button" onClick={handleAddCombination} className="telemetry" style={{ padding: '10px 20px', background: 'var(--bg-high)', color: 'var(--text-main)', border: '1px solid var(--border-ghost)', borderRadius: '10px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 800, transition: 'all 0.2s', textTransform: 'uppercase' }}>+ Add Combination</button>
                                         </div>
 
                                         {combinations.length > 0 && (
@@ -866,20 +870,20 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
 
 
 
-                                <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', paddingTop: '1.5rem' }}>
+                                <div style={{ marginTop: '2.5rem', display: 'flex', gap: '1rem', justifyContent: 'space-between', borderTop: '1px solid var(--border-ghost)', paddingTop: '2.5rem' }}>
                                     <button type="button" onClick={() => {
                                         const tabs = ['General', 'Variant', 'Product Images'];
                                         const currIndex = tabs.indexOf(activeTab);
                                         if (currIndex > 0) setActiveTab(tabs[currIndex - 1]);
-                                    }} style={{ padding: '14px 28px', background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '12px', fontWeight: 700, cursor: activeTab === 'General' ? 'not-allowed' : 'pointer', textTransform: 'uppercase', letterSpacing: '1px', opacity: activeTab === 'General' ? 0 : 1, pointerEvents: activeTab === 'General' ? 'none' : 'auto', transition: 'all 0.2s' }}>Back</button>
+                                    }} className="telemetry" style={{ padding: '14px 28px', background: 'var(--bg-high)', color: 'var(--text-dim)', border: '1px solid var(--border-ghost)', borderRadius: '12px', fontWeight: 800, cursor: activeTab === 'General' ? 'not-allowed' : 'pointer', textTransform: 'uppercase', letterSpacing: '2px', opacity: activeTab === 'General' ? 0 : 1, pointerEvents: activeTab === 'General' ? 'none' : 'auto', transition: 'all 0.2s', fontSize: '0.75rem' }}>Back</button>
 
                                     {activeTab !== 'Product Images' ? (
                                         <button type="button" onClick={() => {
                                             const tabs = ['General', 'Variant', 'Product Images'];
                                             setActiveTab(tabs[tabs.indexOf(activeTab) + 1]);
-                                        }} style={{ padding: '14px 32px', background: '#1e293b', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px', transition: 'all 0.2s' }}>Next Step</button>
+                                        }} className="telemetry" style={{ padding: '14px 32px', background: 'var(--bg-high)', color: 'var(--accent-primary)', border: '1px solid var(--accent-primary)', borderRadius: '12px', fontWeight: 900, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '2px', transition: 'all 0.2s', fontSize: '0.75rem' }}>Next Step</button>
                                     ) : (
-                                        <button type="submit" className="btn-glowing" style={{ padding: '14px 32px', background: 'linear-gradient(135deg, #e11919 0%, #900a0a 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', boxShadow: '0 8px 24px rgba(225, 25, 25, 0.2)', textTransform: 'uppercase', letterSpacing: '1px', transition: 'all 0.2s' }}>{productToEdit ? 'Update Product' : 'Submit Product'}</button>
+                                        <button type="submit" className="tortox-button" style={{ padding: '14px 32px', borderRadius: '12px', fontSize: '0.75rem' }}>{productToEdit ? 'Update Product' : 'Submit Product'}</button>
                                     )}
                                 </div>
                             </form>
@@ -914,7 +918,7 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
                             initial={{ y: 50, opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
                             exit={{ y: 50, opacity: 0 }}
-                            style={{ ...modalStyle, margin: '0 auto', maxWidth: '1200px' }}
+                            style={{ ...modalStyle, width: '100vw', minHeight: '100vh' }}
                         >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '1px solid var(--border)', paddingBottom: '1.5rem' }}>
                                 <div>
@@ -1009,7 +1013,10 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
 
                                 {/* Features */}
                                 <div>
-                                    <p style={{ fontSize: '0.95rem', fontWeight: 900, color: '#e11919', marginBottom: '15px', textTransform: 'uppercase', letterSpacing: '1.2px' }}>Highlight Features</p>
+                                    <p style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--accent-primary)', marginBottom: '15px', textTransform: 'uppercase', letterSpacing: '1.2px' }}>
+                                        Highlight Features
+                                    </p>
+
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                         <Reorder.Group
                                             axis="y"
@@ -1019,11 +1026,17 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
                                                 newComb[editingVariantIdx].features = newOrder;
                                                 setCombinations(newComb);
                                             }}
-                                            style={{ display: 'flex', flexDirection: 'column', gap: '8px', listStyle: 'none', padding: 0 }}
+                                            style={{
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '8px',
+                                                listStyle: 'none',
+                                                padding: 0
+                                            }}
                                         >
                                             {(combinations[editingVariantIdx].features || []).map((feat, featIdx) => (
                                                 <FeatureReorderItem
-                                                    key={`${featIdx}-${feat}`}
+                                                    key={feat.id}
                                                     feat={feat}
                                                     featIdx={featIdx}
                                                     combinations={combinations}
@@ -1033,17 +1046,39 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
                                                 />
                                             ))}
                                         </Reorder.Group>
-                                        <button type="button" onClick={() => {
-                                            const newComb = [...combinations];
-                                            newComb[editingVariantIdx].features = [...(newComb[editingVariantIdx].features || []), ''];
-                                            setCombinations(newComb);
-                                        }} style={{ alignSelf: 'flex-start', fontSize: '0.8rem', color: '#e11919', fontWeight: 800, background: 'none', border: 'none', cursor: 'pointer', marginTop: '5px' }}>+ Add Bullet Point</button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setCombinations(prev => prev.map((c, ci) => {
+                                                    if (ci === editingVariantIdx) {
+                                                        return {
+                                                            ...c,
+                                                            features: [...(c.features || []), { id: Date.now() + Math.random().toString(36).substring(2, 9), text: '' }]
+                                                        };
+                                                    }
+                                                    return c;
+                                                }));
+                                            }}
+                                            style={{
+                                                alignSelf: 'flex-start',
+                                                fontSize: '0.8rem',
+                                                color: '#e11919',
+                                                fontWeight: 800,
+                                                background: 'none',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                marginTop: '5px'
+                                            }}
+                                        >
+                                            + Add Bullet Point
+                                        </button>
                                     </div>
                                 </div>
 
                                 {/* Technical Specifications */}
                                 <div>
-                                    <p style={{ fontSize: '0.95rem', fontWeight: 900, color: '#e11919', marginBottom: '15px', textTransform: 'uppercase', letterSpacing: '1.2px' }}>Technical Specifications</p>
+                                    <p style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--accent-primary)', marginBottom: '15px', textTransform: 'uppercase', letterSpacing: '1.2px' }}>Technical Specifications</p>
                                     <Reorder.Group
                                         axis="y"
                                         values={combinations[editingVariantIdx].specs || []}
@@ -1066,7 +1101,7 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
                                             />
                                         ))}
                                     </Reorder.Group>
-                                    <button type="button" onClick={() => setIsLabelModalOpen(true)} style={{ alignSelf: 'flex-start', fontSize: '0.8rem', color: '#e11919', fontWeight: 800, background: 'none', border: 'none', cursor: 'pointer', marginTop: '15px' }}>+ New Specification Field</button>
+                                    <button type="button" onClick={() => setIsLabelModalOpen(true)} style={{ alignSelf: 'flex-start', fontSize: '0.8rem', color: 'var(--accent-primary)', fontWeight: 800, background: 'none', border: 'none', cursor: 'pointer', marginTop: '15px' }}>+ New Specification Field</button>
                                 </div>
                             </div>
 
@@ -1081,12 +1116,12 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
     );
 };
 
-const backdropStyle = { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'var(--bg-primary)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflowY: 'auto', transition: 'all 0.3s ease' };
-const modalStyle = { background: 'var(--bg-primary)', color: 'var(--text-main)', padding: '3rem 2rem 6rem 2rem', width: '100vw', minHeight: '100vh', position: 'relative', border: 'none', transition: 'all 0.3s ease' };
-const headerStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', paddingBottom: '20px', borderBottom: '2px solid var(--border)' };
-const labelStyle = { display: 'block', fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1px' };
-const inputStyle = { width: '100%', padding: '16px 20px', border: '2px solid var(--border)', borderRadius: '16px', fontSize: '1rem', outline: 'none', margin: 0, background: 'var(--bg-secondary)', boxSizing: 'border-box', fontFamily: 'inherit', transition: 'all 0.3s ease', color: 'var(--text-main)' };
-const submitBtnStyle = { width: '100%', padding: '18px', background: 'linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%)', color: '#fff', border: 'none', borderRadius: '16px', fontWeight: 900, cursor: 'pointer', marginTop: '2rem', boxShadow: '0 10px 30px rgba(225, 25, 25, 0.25)', textTransform: 'uppercase', letterSpacing: '1.5px', fontSize: '1rem', transition: 'all 0.3s ease' };
+const backdropStyle = { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflowY: 'auto', backdropFilter: 'blur(10px)' };
+const modalStyle = { background: 'var(--bg-primary)', color: 'var(--text-main)', padding: '3.5rem 2.5rem 6rem 2.5rem', width: '100vw', minHeight: '100vh', position: 'relative', border: 'none', transition: 'all 0.3s ease' };
+const headerStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3rem', paddingBottom: '24px', borderBottom: '1px solid var(--border-ghost)' };
+const labelStyle = { display: 'block', fontSize: '0.75rem', fontWeight: 900, color: '#000', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1.2px' };
+const inputStyle = { width: '100%', padding: '16px 20px', border: '1px solid #000', borderRadius: '12px', fontSize: '0.95rem', outline: 'none', margin: 0, background: 'var(--bg-secondary)', boxSizing: 'border-box', fontFamily: 'inherit', transition: 'all 0.3s ease', color: 'var(--text-main)' };
+const submitBtnStyle = { width: '100%', padding: '20px', background: 'var(--accent-primary)', color: '#000', border: 'none', borderRadius: '12px', fontWeight: 900, cursor: 'pointer', marginTop: '2.5rem', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '1rem', transition: 'all 0.3s ease' };
 
 // 🛠️ Helper Components for Drag and Drop reliability
 const FeatureReorderItem = ({ feat, featIdx, combinations, editingVariantIdx, setCombinations, inputStyle }) => {
@@ -1108,11 +1143,18 @@ const FeatureReorderItem = ({ feat, featIdx, combinations, editingVariantIdx, se
             <input
                 type="text"
                 placeholder="Feature bullet point..."
-                value={feat}
+                value={feat.text || ''}
                 onChange={(e) => {
-                    const newComb = [...combinations];
-                    newComb[editingVariantIdx].features[featIdx] = e.target.value;
-                    setCombinations(newComb);
+                    const newVal = e.target.value;
+                    setCombinations(prev => prev.map((c, ci) => {
+                        if (ci === editingVariantIdx) {
+                            return {
+                                ...c,
+                                features: c.features.map((f, fi) => fi === featIdx ? { ...f, text: newVal } : f)
+                            };
+                        }
+                        return c;
+                    }));
                 }}
                 style={{ ...inputStyle, padding: '12px 16px', fontSize: '0.95rem', background: 'transparent', border: 'none', flex: 1, margin: 0 }}
             />
@@ -1156,12 +1198,16 @@ const SpecReorderItem = ({ s, combinations, editingVariantIdx, setCombinations, 
                     type="text"
                     value={s.value}
                     onChange={(e) => {
-                        const newComb = [...combinations];
-                        const spIdx = newComb[editingVariantIdx].specs.findIndex(sp => sp.id === s.id);
-                        if (spIdx !== -1) {
-                            newComb[editingVariantIdx].specs[spIdx].value = e.target.value;
-                            setCombinations(newComb);
-                        }
+                        const newVal = e.target.value;
+                        setCombinations(prev => prev.map((c, ci) => {
+                            if (ci === editingVariantIdx) {
+                                return {
+                                    ...c,
+                                    specs: c.specs.map(sp => sp.id === s.id ? { ...sp, value: newVal } : sp)
+                                };
+                            }
+                            return c;
+                        }));
                     }}
                     style={{ ...inputStyle, background: 'var(--bg-primary)', border: '1px solid var(--border)', margin: 0 }}
                     placeholder={`Enter ${s.label}...`}

@@ -6,3 +6,17 @@ build/
 .idea/
 *.log
 .nyc_output/
+db_output*.txt
+inspect_*.js
+db_inspection*.txt
+output.txt
+output.md
+path_check.txt
+tester.js
+check_products.js
+emergency.js
+fix_db_*.js
+test_insert*.js
+test_verify*.txt
+test_insert*.txt
+fix_db_*.txt

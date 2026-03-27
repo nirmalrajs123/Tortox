@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, Users, Settings, LogOut, PlusCircle, Edit, X, Trash2 } from 'lucide-react';
+import {
+    LayoutDashboard, ShoppingBag, Users, Settings, LogOut, PlusCircle, Edit, X, Trash2,
+    Search, Bell, Package, Box, Activity, FileText, LayoutGrid, ListFilter, ChevronRight
+} from 'lucide-react';
 import { productService } from '../services/product'; // ➕ Use productService
-import logo from '../assets/logo.png';
+import TortoxLogo from './TortoxLogo';
 import AddProductModal from './product';
 import CategorySettings from './dashboard/CategorySettings';
 import SpecificationsSettings from './dashboard/SpecificationsSettings';
@@ -11,23 +14,21 @@ import SpecificationsSettings from './dashboard/SpecificationsSettings';
 import FilterSettings from './dashboard/FilterSettings';
 import { Moon, Sun } from 'lucide-react';
 
-const Dashboard = ({ toggleTheme, theme }) => {
+
+const Dashboard = () => {
     const navigate = useNavigate();
     const [products, setProducts] = useState([]);
     const [user, setUser] = useState(null);
-    const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard', 'products', 'settings'
-    const [settingsTab, setSettingsTab] = useState('categories'); // 'categories' or 'specifications'
+    const [currentView, setCurrentView] = useState('dashboard');
+    const [settingsTab, setSettingsTab] = useState('categories');
     const [showAddForm, setShowAddForm] = useState(false);
-
-    // 🔬 View Modal States flawlessly flaws flawlessly
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [showViewModal, setShowViewModal] = useState(false);
 
     const loadProducts = async () => {
         try {
             const res = await productService.getAll();
-            console.log("Dashboard loaded products:", res.data); // 📢 Debug node flaws flawlessly
-            setProducts(res.data?.data || []); // 🛡️ Added fallback safety
+            setProducts(res.data?.data || []);
         } catch (err) {
             console.error(err);
         }
@@ -35,23 +36,17 @@ const Dashboard = ({ toggleTheme, theme }) => {
 
     useEffect(() => {
         const loggedInUser = localStorage.getItem('user');
-        if (!loggedInUser) {
-            navigate('/login');
-            return;
-        }
+        if (!loggedInUser) { navigate('/login'); return; }
         try {
             setUser(JSON.parse(loggedInUser));
             loadProducts();
         } catch (err) {
-            console.error("Session parse error:", err);
-            localStorage.removeItem('user');
-            navigate('/login');
+            localStorage.removeItem('user'); navigate('/login');
         }
     }, [navigate]);
 
     const handleLogout = () => {
-        localStorage.removeItem('user');
-        navigate('/login');
+        localStorage.removeItem('user'); navigate('/login');
     };
 
     const handleEdit = async (id) => {
@@ -62,217 +57,224 @@ const Dashboard = ({ toggleTheme, theme }) => {
                 setShowAddForm(true);
             }
         } catch (e) {
-            console.error('Failed to load product for editing', e);
-            alert('Failed to load full product details');
+            console.error(e);
+            alert('Failed to load product details');
         }
     };
 
-    if (!user) return null;
-
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg-primary)', color: 'var(--text-main)', transition: 'all 0.3s ease' }}>
-
-            {/* Sidebar dashboard options indexing properly framing securely */}
-            <aside style={{
-                width: '260px', background: 'var(--bg-secondary)', borderRight: '1px solid var(--border)',
-                display: 'flex', flexDirection: 'column', padding: '1.5rem 1.2rem', transition: 'all 0.3s ease'
+        <div style={{
+            minHeight: '100vh',
+            background: 'var(--bg-primary)',
+            display: 'flex',
+        }}>
+            {/* 🌅 Horizon Full-Screen Horizon Rail Architecture setup correctly properly */}
+            <div className="page-portal" style={{
+                width: '100vw',
+                height: '100vh',
+                display: 'flex',
+                background: 'var(--bg-primary)',
+                borderRadius: 0,
+                boxShadow: 'none',
+                border: 'none',
+                margin: 0
             }}>
-                <div style={{ marginBottom: '2.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <img src={logo} alt="Tortox Logo" style={{ height: '35px', objectFit: 'contain', filter: theme === 'dark' ? 'invert(1)' : 'none' }} />
-                </div>
+                {/* 🛸 Horizon Mini Sidebar - Clean, thin architecture setup for minimal focus redirection */}
+                <aside style={{
+                    width: '100px',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem 0',
+                    borderRight: '1px solid var(--border-ghost)',
+                    zIndex: 10,
+                    background: 'var(--bg-surface)'
+                }}>
+                    <div style={{ marginBottom: '3rem', cursor: 'pointer' }} onClick={() => setCurrentView('dashboard')}>
+                        <TortoxLogo size="70px" />
+                    </div>
 
-                <nav style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                    {[
-                        { title: 'Dashboard', icon: <LayoutDashboard size={19} />, view: 'dashboard' },
-                        { title: 'Products', icon: <ShoppingBag size={19} />, view: 'products' },
-                        { title: 'Users', icon: <Users size={19} />, view: 'users' },
-                        { title: 'Settings', icon: <Settings size={19} />, view: 'settings' }
-                    ].map((item) => (
-                        <div
-                            key={item.view}
-                            onClick={() => { if (['dashboard', 'products', 'settings'].includes(item.view)) setCurrentView(item.view); }}
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', borderRadius: '10px',
-                                background: currentView === item.view ? 'rgba(225, 25, 25, 0.05)' : 'transparent',
-                                color: currentView === item.view ? '#e11919' : '#4b5563',
-                                fontWeight: currentView === item.view ? 600 : 500, cursor: 'pointer', fontSize: '0.9rem', transition: 'all 0.2s'
-                            }}
-                        >
-                            {item.icon} {item.title}
+                    <nav style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem', alignItems: 'center' }}>
+                        {[
+                            { icon: <LayoutDashboard size={22} />, view: 'dashboard' },
+                            { icon: <ShoppingBag size={22} />, view: 'products' },
+                            { icon: <Users size={22} />, view: 'users' },
+                            { icon: <Settings size={22} />, view: 'settings' }
+                        ].map((item) => (
+                            <motion.div
+                                key={item.view}
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => { if (['dashboard', 'products', 'settings'].includes(item.view)) setCurrentView(item.view); }}
+                                style={{
+                                    padding: '12px', borderRadius: '12px',
+                                    background: currentView === item.view ? '#f8fafc' : 'transparent',
+                                    color: currentView === item.view ? 'var(--accent-primary)' : '#94a3b8',
+                                    cursor: 'pointer', transition: 'all 0.2s'
+                                }}
+                            >
+                                {item.icon}
+                            </motion.div>
+                        ))}
+                    </nav>
+
+                    <button onClick={handleLogout} style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'none', border: '1px solid #f1f5f9', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                        <LogOut size={18} />
+                    </button>
+                </aside>
+
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                    {/* 🏔️ Horizon Toolbar - High-precision breadcrumb navigation framing structure correctly */}
+                    <header style={{
+                        height: '64px',
+                        borderBottom: '1px solid var(--border-ghost)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '0 2rem',
+                        justifyContent: 'space-between',
+                        background: 'var(--bg-surface)'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                            <TortoxLogo size="160px" />
+                            <div style={{ width: '1px', height: '20px', background: 'var(--border-ghost)' }} />
+                            <span style={{ padding: '2px 10px', borderRadius: '20px', background: 'rgba(22, 101, 52, 0.2)', color: '#4ade80', fontSize: '0.65rem', fontWeight: 800 }}>ONLINE</span>
                         </div>
-                    ))}
-                </nav>
+                    </header>
 
-                <button onClick={toggleTheme} style={{ marginBottom: '1rem', padding: '11px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>
-                    {theme === 'light' ? <Moon size={17} /> : <Sun size={17} />} {theme === 'light' ? 'Dark' : 'Light'} Mode
-                </button>
-
-                <button onClick={handleLogout} style={{ padding: '11px', background: 'none', border: '1px solid var(--border)', borderRadius: '10px', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>
-                    <LogOut size={17} /> Logout
-                </button>
-            </aside>
-
-            {/* Main Content Dashboard indexes layout framing correctly setup decently */}
-            <main style={{ flexGrow: 1, padding: '2.5rem 3rem', overflowY: 'auto' }}>
-
-                {currentView === 'dashboard' && (
-                    <>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                            <div>
-                                <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#111827' }}>Overview</h1>
-                                <p style={{ color: '#6b7280', fontSize: '0.9rem' }}>Welcome back, {user.email}</p>
-                            </div>
+                    {!user ? (
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
+                            <div className="energy-dot" style={{ width: '12px', height: '12px' }} />
                         </div>
+                    ) : (
+                        <main style={{ flexGrow: 1, display: 'flex', overflow: 'hidden' }}>
+                            {/* Main Viewport Panel - Action workspace for TORTOX operations accurate framing index correctly */}
+                            <div style={{ flex: 1, padding: '3.5rem', overflowY: 'auto', background: 'var(--bg-primary)' }}>
+                                {currentView === 'dashboard' && (
+                                    <div style={{ width: '100%' }}>
+                                        <header style={{ marginBottom: '3rem' }}>
+                                            <h1 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '8px' }}>Operations Hub</h1>
+                                            <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>Tactical data relay for {user.email}</p>
+                                        </header>
 
-                        {/* Stats Cards grid view indices framing decently correctly */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '2.5rem' }}>
-                            {[
-                                { title: 'Total Products', value: products.length, icon: <ShoppingBag size={26} />, color: '#e11919' },
-                                { title: 'Total Users', value: '1', icon: <Users size={26} />, color: '#10b981' },
-                                { title: 'Active Views', value: '142', icon: <LayoutDashboard size={26} />, color: '#3b82f6' }
-                            ].map((item, index) => (
-                                <div key={index} style={{ background: 'var(--bg-secondary)', padding: '1.5rem', borderRadius: '14px', boxShadow: '0 4px 15px rgba(0,0,0,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid var(--border)', transition: 'all 0.3s ease' }}>
-                                    <div>
-                                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 500 }}>{item.title}</p>
-                                        <p style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '4px' }}>{item.value}</p>
-                                    </div>
-                                    <div style={{ width: '46px', height: '46px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${item.color}10`, color: item.color }}>{item.icon}</div>
-                                </div>
-                            ))}
-                        </div>
-                    </>
-                )}
-
-                {currentView === 'settings' && (
-                    <>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                            <div>
-                                <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#111827' }}>Site Settings</h1>
-                                <p style={{ color: '#6b7280', fontSize: '0.9rem' }}>Configure categories and dynamic specification fields</p>
-                            </div>
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-                            {['categories', 'filters'].map(tab => (
-                                <button
-                                    key={tab}
-                                    onClick={() => setSettingsTab(tab)}
-                                    style={{
-                                        padding: '8px 20px', borderRadius: '10px', fontSize: '0.85rem', fontWeight: 700,
-                                        background: settingsTab === tab ? '#e11919' : 'none',
-                                        color: settingsTab === tab ? '#fff' : '#6b7280',
-                                        border: 'none', cursor: 'pointer', transition: 'all 0.2s',
-                                        boxShadow: settingsTab === tab ? '0 4px 12px rgba(225,25,25,0.15)' : 'none',
-                                        textTransform: 'capitalize'
-                                    }}
-                                >
-                                    {tab}
-                                </button>
-                            ))}
-                        </div>
-
-                        {settingsTab === 'categories' && <CategorySettings />}
-                        {settingsTab === 'specifications' && <SpecificationsSettings />}
-                        {settingsTab === 'filters' && <FilterSettings />}
-                    </>
-                )}
-
-                {(currentView === 'products' || currentView === 'dashboard') && (
-                    <>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#111827' }}>{currentView === 'products' ? 'Manage Products' : 'Product Overview List'}</h2>
-
-                            <button onClick={() => setShowAddForm(true)} style={{ padding: '8px 16px', borderRadius: '8px', background: '#e11919', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600 }}><PlusCircle size={16} /> Add Product</button>
-                        </div>
-
-                        {/* 🛠️ Extracted Add Product Modal overlay support trigger framing */}
-                        <AddProductModal
-                            isOpen={showAddForm}
-                            onClose={() => { setShowAddForm(false); setSelectedProduct(null); }}
-                            onSuccess={loadProducts}
-                            productToEdit={selectedProduct}
-                        />
-
-                        {/* 👁️ Product View Modal flawless flawlessly trigger */}
-                        {showViewModal && selectedProduct && (
-                            <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100vh', background: 'rgba(0,0,0,0.4)', zIndex: 999, display: 'flex', justifyContent: 'center', alignItems: 'center', backdropFilter: 'blur(4px)' }} onClick={() => setShowViewModal(false)}>
-                                <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} onClick={(e) => e.stopPropagation()} style={{ background: '#ffffff', padding: '2.5rem', borderRadius: '16px', width: '92%', maxWidth: '850px', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 20px 50px rgba(0,0,0,0.12)', position: 'relative' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px' }}>
-                                        <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#111827' }}>Product Details</h3>
-                                        <button type="button" onClick={() => setShowViewModal(false)} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer' }}><X size={20} /></button>
-                                    </div>
-
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', fontSize: '0.88rem' }}>
-                                        <div><strong style={{ color: '#4b5563' }}>Product Name:</strong> <span style={{ color: '#111827', fontWeight: 600 }}>{selectedProduct.product_name}</span></div>
-                                        <div><strong style={{ color: '#4b5563' }}>Model No:</strong> <span style={{ color: '#1e293b' }}>{selectedProduct.modal}</span></div>
-                                        <div><strong style={{ color: '#4b5563' }}>Model Name:</strong> <span style={{ color: '#1e293b' }}>{selectedProduct.modal_name}</span></div>
-
-                                    </div>
-
-                                    <div style={{ marginTop: '1rem' }}>
-                                        <strong style={{ fontSize: '0.85rem', color: '#4b5563' }}>Description:</strong>
-                                        <p style={{ marginTop: '4px', fontSize: '0.85rem', color: '#6b7280', lineHeight: 1.5 }}>{selectedProduct.product_description}</p>
-                                    </div>
-
-                                    {selectedProduct.specs && typeof selectedProduct.specs === 'object' && (
-                                        <div style={{ marginTop: '1.5rem', background: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                                            <p style={{ fontWeight: 800, color: '#e11919', marginBottom: '10px', textTransform: 'uppercase', fontSize: '0.75rem' }}>Case Specs</p>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', fontSize: '0.82rem' }}>
-                                                {Object.entries(selectedProduct.specs).map(([k, v]) => (
-                                                    v && String(v).trim() !== '' && (
-                                                        <div key={k} style={{ color: '#4b5563' }}>
-                                                            <strong style={{ textTransform: 'capitalize' }}>{k.replace(/([A-Z])/g, ' $1')}:</strong> {v}
-                                                        </div>
-                                                    )
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </motion.div>
-                            </div>
-                        )}
-                        <style>{`
-                            .hover-row { transition: all 0.22s ease-out; }
-                            .hover-row:hover { background-color: rgba(225, 25, 25, 0.015) !important; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
-                        `}</style>
-
-                        {Array.isArray(products) && products.length === 0 ? (
-                            <div style={{ background: 'var(--bg-secondary)', borderRadius: '16px', padding: '5rem 2rem', textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', alignItems: 'center', border: '1px solid var(--border)', transition: 'all 0.3s ease' }}>
-                                <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: 'rgba(225, 25, 25, 0.05)', color: '#e11919', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.2rem' }}>
-                                    <ShoppingBag size={28} />
-                                </div>
-                                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '6px' }}>No Products Setup</h3>
-                                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', maxWidth: '300px', lineHeight: 1.5, marginBottom: '1.5rem' }}>Your product catalog is currently empty. Start building your portfolio today.</p>
-                                <button onClick={() => setShowAddForm(true)} style={{ padding: '8px 16px', borderRadius: '8px', background: '#e11919', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 600 }}><PlusCircle size={16} /> Add First Product </button>
-                            </div>
-                        ) : (
-                            <div style={{ background: 'var(--bg-secondary)', borderRadius: '14px', boxShadow: '0 4px 15px rgba(0,0,0,0.02)', overflow: 'hidden', border: '1px solid var(--border)', transition: 'all 0.3s ease' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                                    <thead style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border)' }}>
-                                        <tr>{['Product ID', 'Modal No', 'Actions'].map((head) => (<th key={head} style={{ padding: '12px 20px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{head}</th>))}</tr>
-                                    </thead>
-                                    <tbody>
-                                        {products.map((prod) => (
-                                            <tr key={prod.id} className="hover-row" style={{ borderBottom: '1px solid var(--border)' }}>
-                                                <td style={{ padding: '14px 20px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>{prod.id}</td>
-                                                <td style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)', fontSize: '0.88rem' }}>
-                                                    {prod.modal}
-                                                </td>
-                                                <td style={{ padding: '14px 20px' }}>
-                                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                        <button onClick={() => handleEdit(prod.id)} style={{ padding: '6px 12px', borderRadius: '6px', background: 'rgba(225,25,25,0.08)', color: '#e11919', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', fontWeight: 600 }}><Edit size={14} /> Edit</button>
-                                                        <button onClick={async () => { if (window.confirm("Delete product?")) { try { await productService.delete(prod.id); loadProducts(); } catch (e) { console.error(e); } } }} style={{ padding: '6px 12px', borderRadius: '6px', background: '#fee2e2', color: '#ef4444', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', fontWeight: 600 }}><Trash2 size={14} /> Delete</button>
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 15 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '3.5rem' }}
+                                        >
+                                            {[
+                                                { title: 'TOTAL GEAR', value: products.length, icon: <ShoppingBag size={20} />, color: 'var(--accent-primary)' },
+                                                { title: 'ACTIVE CHASSIS', value: '1', icon: <Users size={20} />, color: '#6366f1' },
+                                                { title: 'RELAY STATUS', value: 'NOMINAL', icon: <LayoutDashboard size={20} />, color: '#10b981', pulse: true }
+                                            ].map((item, index) => (
+                                                <motion.div
+                                                    key={index}
+                                                    whileHover={{ y: -5, boxShadow: '0 20px 40px rgba(0,0,0,0.04)' }}
+                                                    style={{ padding: '2rem', borderRadius: '24px', background: 'var(--bg-surface)', border: '1px solid var(--border-ghost)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}
+                                                >
+                                                    <div>
+                                                        <p style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: 800, letterSpacing: '1px', marginBottom: '12px' }}>{item.title}</p>
+                                                        <p className="telemetry" style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--text-main)' }}>{item.value}</p>
                                                     </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                                    <div style={{ color: item.color, background: `${item.color}11`, padding: '10px', borderRadius: '12px' }}>{item.icon}</div>
+                                                </motion.div>
+                                            ))}
+                                        </motion.div>
+                                    </div>
+                                )}
+                                
+                                {currentView === 'products' && (
+                                    <div style={{ width: '100%' }}>
+                                        <header style={{ marginBottom: '3rem' }}>
+                                            <h1 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '8px' }}>Equipment Inventory</h1>
+                                            <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>Full hardware catalog and lifecycle management</p>
+                                        </header>
+
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                                            <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)' }}>Equipment Logs</h2>
+                                            <motion.button
+                                                whileHover={{ scale: 1.02 }}
+                                                whileTap={{ scale: 0.98 }}
+                                                onClick={() => setShowAddForm(true)}
+                                                className="telemetry"
+                                                style={{ padding: '12px 24px', borderRadius: '12px', background: 'var(--accent-primary)', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', fontWeight: 700 }}
+                                            >
+                                                <PlusCircle size={18} /> Add Unit
+                                            </motion.button>
+                                        </div>
+
+                                        <motion.div
+                                            className="surface-white"
+                                            style={{ borderRadius: '24px', border: '1px solid var(--border-ghost)', background: 'var(--bg-surface)', overflow: 'hidden' }}
+                                        >
+                                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                                <thead style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-ghost)' }}>
+                                                    <tr>{['Product ID', 'Model / Serial No', 'Main Image', 'Hover Image', 'Actions'].map((head) => (<th key={head} style={{ padding: '16px 24px', fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1.5px', textAlign: 'left' }}>{head}</th>))}</tr>
+                                                </thead>
+                                                <tbody>
+                                                    <AnimatePresence>
+                                                        {products.map((prod, idx) => (
+                                                            <motion.tr
+                                                                key={prod.id}
+                                                                initial={{ opacity: 0 }}
+                                                                animate={{ opacity: 1 }}
+                                                                style={{ borderBottom: '1px solid var(--border-ghost)' }}
+                                                            >
+                                                                <td style={{ padding: '20px 24px', color: 'var(--accent-primary)', fontWeight: 700, fontSize: '0.9rem' }}>#{prod.id}</td>
+                                                                <td style={{ padding: '20px 24px', fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>{prod.modal || prod.name || 'N/A'}</td>
+                                                                <td style={{ padding: '12px 24px' }}>
+                                                                    <div style={{ width: '50px', height: '50px', borderRadius: '8px', overflow: 'hidden', background: '#f8fafc', border: '1px solid #f1f5f9' }}>
+                                                                        {prod.image ? (
+                                                                            <img src={prod.image} alt="Main" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                                                        ) : (
+                                                                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cbd5e1' }}><Box size={16} /></div>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                                <td style={{ padding: '12px 24px' }}>
+                                                                    <div style={{ width: '50px', height: '50px', borderRadius: '8px', overflow: 'hidden', background: '#f8fafc', border: '1px solid #f1f5f9' }}>
+                                                                        {prod.hover_image ? (
+                                                                            <img src={prod.hover_image} alt="Hover" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                                                        ) : (
+                                                                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cbd5e1' }}><Box size={16} /></div>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                                <td style={{ padding: '20px 24px' }}>
+                                                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                                                        <button onClick={() => handleEdit(prod.id)} style={{ padding: '8px 16px', borderRadius: '8px', background: 'var(--bg-primary)', color: 'var(--text-dim)', border: '1px solid var(--border-ghost)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}>Edit</button>
+                                                                        <button onClick={async () => { if (window.confirm("Purge?")) { try { await productService.delete(prod.id); loadProducts(); } catch (e) { console.error(e); } } }} style={{ padding: '8px 16px', borderRadius: '8px', background: 'transparent', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}>Purge</button>
+                                                                    </div>
+                                                                </td>
+                                                            </motion.tr>
+                                                        ))}
+                                                    </AnimatePresence>
+                                                </tbody>
+                                            </table>
+                                        </motion.div>
+                                    </div>
+                                )}
+
+                                {currentView === 'settings' && (
+                                    <div style={{ width: '100%' }}>
+                                        <header style={{ marginBottom: '2.5rem' }}>
+                                            <h1 style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '4px' }}>Telemetry Config</h1>
+                                            <p style={{ color: '#64748b' }}>Core categories and filtering architecture</p>
+                                        </header>
+                                        <div style={{ display: 'flex', gap: '8px', marginBottom: '2rem' }}>
+                                            {['categories', 'filters'].map(tab => (
+                                                <button key={tab} onClick={() => setSettingsTab(tab)} style={{ padding: '10px 20px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700, background: settingsTab === tab ? '#0f172a' : '#fff', color: settingsTab === tab ? '#fff' : '#64748b', border: '1px solid #e2e8f0', cursor: 'pointer' }}>{tab.toUpperCase()}</button>
+                                            ))}
+                                        </div>
+                                        <div style={{ background: '#fff', padding: '2rem', borderRadius: '24px', border: '1px solid #f1f5f9' }}>
+                                            {settingsTab === 'categories' && <CategorySettings />}
+                                            {settingsTab === 'filters' && <FilterSettings />}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </>
-                )}
-            </main>
+                        </main>
+                    )}
+                </div>
+            </div>
+
+            <AddProductModal isOpen={showAddForm} onClose={() => { setShowAddForm(false); setSelectedProduct(null); }} onSuccess={loadProducts} productToEdit={selectedProduct} />
         </div>
     );
 };

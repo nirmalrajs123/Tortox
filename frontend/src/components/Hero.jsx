@@ -105,10 +105,10 @@ const Hero = () => {
                         style={{
                             display: 'inline-block',
                             padding: '6px 14px',
-                            background: 'rgba(255, 71, 26, 0.08)',
-                            border: '1px solid rgba(255, 71, 26, 0.2)',
+                            background: 'rgba(225, 25, 25, 0.08)',
+                            border: '1px solid rgba(225, 25, 25, 0.2)',
                             borderRadius: '20px',
-                            color: '#ff471a',
+                            color: '#e11919',
                             fontWeight: 600,
                             fontSize: '0.8rem',
                             letterSpacing: '1px',
@@ -128,7 +128,7 @@ const Hero = () => {
                     }}>
                         {slides[currentIndex].titlePrefix} 
                         <span className="glow-text" style={{ 
-                            background: 'linear-gradient(90deg, #ff471a, #ff8533)', 
+                            background: 'linear-gradient(90deg, #e11919, #900a0a)', 
                             WebkitBackgroundClip: 'text', 
                             WebkitTextFillColor: 'transparent'
                         }}>
@@ -158,14 +158,14 @@ const Hero = () => {
                     >
                         <button style={{
                             padding: '14px 34px',
-                            background: 'linear-gradient(135deg, #ff471a 0%, #ff8533 100%)',
+                            background: 'linear-gradient(135deg, #e11919 0%, #900a0a 100%)',
                             color: '#fff',
                             border: 'none',
                             borderRadius: '30px',
                             fontSize: '0.95rem',
                             fontWeight: 600,
                             cursor: 'pointer',
-                            boxShadow: '0 8px 24px rgba(255, 71, 26, 0.2)',
+                            boxShadow: '0 8px 24px rgba(225, 25, 25, 0.2)',
                             transition: 'box-shadow 0.2s'
                         }}>
                             {slides[currentIndex].btnText}
@@ -241,7 +241,7 @@ const Hero = () => {
                             width: currentIndex === index ? '24px' : '8px',
                             height: '8px',
                             borderRadius: '4px',
-                            background: currentIndex === index ? '#ff471a' : 'rgba(0,0,0,0.15)',
+                            background: currentIndex === index ? '#e11919' : 'rgba(0,0,0,0.15)',
                             cursor: 'pointer',
                             transition: 'all 0.3s'
                         }}

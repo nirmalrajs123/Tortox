@@ -21,6 +21,12 @@ pool.on('error', (err) => {
 });
 
 const initializeDatabase = async () => {
+    const alterProductImagesQuery = `
+        ALTER TABLE product_images ADD COLUMN IF NOT EXISTS image_type TEXT DEFAULT 'gallery';
+        ALTER TABLE product_images ADD COLUMN IF NOT EXISTS hover_path TEXT;
+    `;
+    await pool.query(alterProductImagesQuery);
+
     // 1. Create Products Table
     const createProductsQuery = `
         CREATE TABLE IF NOT EXISTS product_details (
@@ -138,7 +144,8 @@ const initializeDatabase = async () => {
             id SERIAL PRIMARY KEY,
             product_id INTEGER NOT NULL,
             image_path TEXT,
-            hover_path TEXT
+            hover_path TEXT,
+            image_type TEXT DEFAULT 'gallery' -- 'main', 'hover', 'gallery'
         );
     `;
 

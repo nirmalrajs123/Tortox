@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Globe, HelpCircle, ChevronDown, Moon, Sun } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { categoryService } from '../services/category';
-import logo from '../assets/logo.png';
+import TortoxLogo from './TortoxLogo';
 
 const Navbar = ({ toggleTheme, theme }) => {
     const navigate = useNavigate();
@@ -23,11 +23,11 @@ const Navbar = ({ toggleTheme, theme }) => {
     }, []);
 
     const navItems = [
-        { 
-            title: 'Products', 
-            items: categories.length > 0 
-                ? categories.map(c => c.category_name) 
-                : ['Chassis / Case', 'Liquid Coolers', 'ARGB Fans', 'Power Supply', 'Gaming Mice'] 
+        {
+            title: 'Products',
+            items: categories.length > 0
+                ? categories.map(c => c.category_name)
+                : ['Chassis / Case', 'Liquid Coolers', 'ARGB Fans', 'Power Supply', 'Gaming Mice']
         },
         { title: 'About', items: ['Company Profile', 'News & Events', 'Quality & Design'] },
         { title: 'Community', items: ['User Forums', 'Wallpaper', 'Newsletter'] },
@@ -53,7 +53,7 @@ const Navbar = ({ toggleTheme, theme }) => {
                 style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
                 onClick={() => navigate('/')}
             >
-                <img src={logo} alt="Tortox Logo" style={{ height: '35px', width: 'auto', objectFit: 'contain', filter: theme === 'dark' ? 'invert(1)' : 'none' }} />
+                <TortoxLogo size="35px" />
             </div>
 
             {/* Nav Links - Centered with interactive Dropdown triggers indices framing appropriately */}

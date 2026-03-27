@@ -24,13 +24,13 @@ const ProductCard = ({ product }) => {
                 position: 'absolute',
                 top: '15px',
                 left: '15px',
-                background: 'linear-gradient(135deg, #ff1a1a, #ff6a00)',
+                background: 'linear-gradient(135deg, #e11919, #900a0a)',
                 color: '#ffffff',
                 padding: '3px 9px',
                 borderRadius: '8px',
                 fontSize: '0.65rem',
                 fontWeight: 800,
-                boxShadow: '0 2px 10px rgba(255, 26, 26, 0.2)',
+                boxShadow: '0 2px 10px rgba(225, 25, 25, 0.2)',
                 letterSpacing: '0.5px',
                 zIndex: 10
             }}>
@@ -105,12 +105,12 @@ const ProductCard = ({ product }) => {
                             if (!val) return null;
                             return (
                                 <span key={key} style={{
-                                    background: 'rgba(255, 71, 26, 0.04)',
-                                    border: '1px solid rgba(255, 71, 26, 0.15)',
+                                    background: 'rgba(225, 25, 25, 0.04)',
+                                    border: '1px solid rgba(225, 25, 25, 0.15)',
                                     padding: '4px 8px',
                                     borderRadius: '6px',
                                     fontSize: '0.7rem',
-                                    color: '#ff6a33'
+                                    color: '#e11919'
                                 }}>
                                     {key.replace(/([A-Z])/g, ' $1').toUpperCase().trim()}: {val}
                                 </span>

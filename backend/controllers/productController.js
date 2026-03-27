@@ -3,11 +3,16 @@ const { pool } = require('../config/db');
 
 const getProducts = async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM product_details ORDER BY id ASC');
+        const result = await pool.query(`
+            SELECT p.*, 
+                   (SELECT image_path FROM product_images WHERE product_id = p.id AND (image_path IS NOT NULL AND image_path != '' AND image_path != '/') ORDER BY (CASE WHEN image_type = 'main' THEN 0 ELSE 1 END), id ASC LIMIT 1) as main_image,
+                   (SELECT hover_path FROM product_images WHERE product_id = p.id AND (hover_path IS NOT NULL AND hover_path != '' AND hover_path != '/') AND image_type = 'hover' LIMIT 1) as hover_image
+            FROM product_details p ORDER BY p.id ASC
+        `);
         const serverHost = `${req.protocol}://${req.get('host')}`;
         const data = result.rows.map(prod => ({
             ...prod,
-            image: prod.image ? (prod.image.startsWith('http') ? prod.image : `${serverHost}${prod.image.startsWith('/') ? '' : '/'}${prod.image.trim()}`) : null,
+            image: prod.main_image ? (prod.main_image.startsWith('http') ? prod.main_image : `${serverHost}${prod.main_image.startsWith('/') ? '' : '/'}${prod.main_image.trim()}`) : null,
             hover_image: prod.hover_image ? (prod.hover_image.startsWith('http') ? prod.hover_image : `${serverHost}${prod.hover_image.startsWith('/') ? '' : '/'}${prod.hover_image.trim()}`) : null
         }));
         res.status(200).json({
@@ -32,6 +37,18 @@ const getProductById = async (req, res) => {
         }
 
         const prod = prodRes.rows[0];
+        const serverHost = `${req.protocol}://${req.get('host')}`;
+
+        // 📸 Fetch main and hover from product_images table
+        const mainRows = await pool.query('SELECT image_path FROM product_images WHERE product_id = $1 AND image_type = \'main\' LIMIT 1', [id]);
+        const hoverRows = await pool.query('SELECT hover_path FROM product_images WHERE product_id = $1 AND image_type = \'hover\' LIMIT 1', [id]);
+
+        prod.image = mainRows.rows[0]?.image_path;
+        prod.hover_image = hoverRows.rows[0]?.hover_path;
+
+        // Normalize main images
+        if (prod.image) prod.image = prod.image.startsWith('http') ? prod.image : `${serverHost}${prod.image.startsWith('/') ? '' : '/'}${prod.image.trim()}`;
+        if (prod.hover_image) prod.hover_image = prod.hover_image.startsWith('http') ? prod.hover_image : `${serverHost}${prod.hover_image.startsWith('/') ? '' : '/'}${prod.hover_image.trim()}`;
 
         // 1. Global Specifications (variant_id = 0)
 
@@ -50,7 +67,6 @@ const getProductById = async (req, res) => {
         const varRes = await pool.query('SELECT * FROM variants WHERE product_id = $1 ORDER BY id ASC', [id]);
         const variants = varRes.rows;
 
-        const serverHost = `${req.protocol}://${req.get('host')}`;
         for (let i = 0; i < variants.length; i++) {
             const v = variants[i];
 
@@ -85,7 +101,7 @@ const getProductById = async (req, res) => {
         }
         prod.combinations = variants;
 
-        const prodImgRes = await pool.query('SELECT * FROM product_images WHERE product_id = $1 ORDER BY id ASC', [id]);
+        const prodImgRes = await pool.query('SELECT * FROM product_images WHERE product_id = $1 AND image_type = \'gallery\' AND image_path IS NOT NULL AND image_path != \'\' AND image_path != \'/\' ORDER BY id ASC', [id]);
         const normalize = (p) => {
             if (!p) return null;
             const trimmed = p.trim();
@@ -175,6 +191,14 @@ const addProduct = async (req, res) => {
             [category_id || null, modal || null]
         );
         const product_id = result.rows[0].id;
+
+        // 📸 Save Main & Hover Images to product_images table
+        if (mainImage) {
+            await client.query(`INSERT INTO product_images (product_id, image_path, image_type) VALUES ($1, $2, 'main')`, [product_id, `/uploads/${mainImage.filename}`]);
+        }
+        if (hoverImage) {
+            await client.query(`INSERT INTO product_images (product_id, hover_path, image_type) VALUES ($1, $2, 'hover')`, [product_id, `/uploads/${hoverImage.filename}`]);
+        }
 
         // 2. Add specifications (Global, variant_id = 0)
         if (Array.isArray(specifications)) {
@@ -280,16 +304,11 @@ const addProduct = async (req, res) => {
             }
         }
 
-        // 7. Add product images (Gallery & Hover)
+        // 7. Add product images (Gallery)
         const productImageFiles = req.files ? req.files.filter(f => f.fieldname === 'product_images') : [];
         for (const file of productImageFiles) {
             const imgPath = `/uploads/${file.filename}`;
             await client.query(`INSERT INTO product_images (product_id, image_path) VALUES ($1, $2)`, [product_id, imgPath]);
-        }
-
-        if (hoverImage) {
-            const hoverPath = `/uploads/${hoverImage.filename}`;
-            await client.query(`INSERT INTO product_images (product_id, hover_path) VALUES ($1, $2)`, [product_id, hoverPath]);
         }
 
         await client.query('COMMIT');
@@ -317,11 +336,37 @@ const updateProduct = async (req, res) => {
     try {
         await client.query('BEGIN');
 
-        // 1. Update main product details
+        // 1. Update main product details (Basic only)
         await client.query(
             `UPDATE product_details SET category_id=$1, modal=$2 WHERE id = $3`,
             [category_id || null, modal || null, id]
         );
+
+        // 📸 Update Main & Hover in product_images table
+        const mainImageFile = req.files.find(f => f.fieldname === 'image');
+        const hoverImageFile = req.files.find(f => f.fieldname === 'hover_image');
+
+        if (mainImageFile) {
+            await client.query(`DELETE FROM product_images WHERE product_id = $1 AND image_type = 'main'`, [id]);
+            await client.query(`INSERT INTO product_images (product_id, image_path, image_type) VALUES ($1, $2, 'main')`, [id, `/uploads/${mainImageFile.filename}`]);
+        } else if (bodyArgs.existing_image) {
+            const path = bodyArgs.existing_image.replace(/^https?:\/\/[^\/]+/i, '').trim();
+            if (path && path !== '/') {
+                await client.query(`DELETE FROM product_images WHERE product_id = $1 AND image_type = 'main'`, [id]);
+                await client.query(`INSERT INTO product_images (product_id, image_path, image_type) VALUES ($1, $2, 'main')`, [id, path]);
+            }
+        }
+
+        if (hoverImageFile) {
+            await client.query(`DELETE FROM product_images WHERE product_id = $1 AND image_type = 'hover'`, [id]);
+            await client.query(`INSERT INTO product_images (product_id, hover_path, image_type) VALUES ($1, $2, 'hover')`, [id, `/uploads/${hoverImageFile.filename}`]);
+        } else if (bodyArgs.existing_hover_image) {
+            const path = bodyArgs.existing_hover_image.replace(/^https?:\/\/[^\/]+/i, '').trim();
+            if (path && path !== '/') {
+                await client.query(`DELETE FROM product_images WHERE product_id = $1 AND image_type = 'hover'`, [id]);
+                await client.query(`INSERT INTO product_images (product_id, hover_path, image_type) VALUES ($1, $2, 'hover')`, [id, path]);
+            }
+        }
 
         // 🛠️ SURGICAL UPDATES TO PREVENT "FILL BUG" (Soft-delete batch reset)
         await client.query(`UPDATE specifications SET specification_deleted = true WHERE product_id = $1 AND variant_id = 0`, [id]);
@@ -481,8 +526,8 @@ const updateProduct = async (req, res) => {
             await client.query(`DELETE FROM variants WHERE product_id = $1`, [id]);
         }
 
-        // --- 📸 Main Product Secondary Images ---
-        await client.query(`DELETE FROM product_images WHERE product_id = $1`, [id]);
+        // --- 📸 Main Product Secondary Images (Gallery) ---
+        await client.query(`DELETE FROM product_images WHERE product_id = $1 AND image_type = 'gallery'`, [id]);
         const newProdFiles = req.files.filter(f => f.fieldname === 'product_images');
         const existingProdImages = (typeof bodyArgs.existing_product_images === 'string' ? JSON.parse(bodyArgs.existing_product_images || '[]') : bodyArgs.existing_product_images) || [];
         for (const img of [...existingProdImages, ...newProdFiles.map(f => `/uploads/${f.filename}`)]) {

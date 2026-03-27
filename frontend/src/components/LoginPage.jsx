@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, ArrowLeft, Eye, EyeOff, ShieldCheck, Zap, Cpu } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import logo from '../assets/logo.png';
+import TortoxLogo from './TortoxLogo';
+
 
 const LoginPage = () => {
     const navigate = useNavigate();
@@ -42,23 +43,24 @@ const LoginPage = () => {
         <div style={{
             minHeight: '100vh',
             display: 'flex',
-            backgroundColor: '#070708', // Dark base
+            background: 'var(--bg-primary)',
             position: 'relative',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            fontFamily: "'Manrope', sans-serif"
         }}>
 
             {/* 🛡️ Left Side: About Panel (Split Layout) */}
             <div style={{
-                flex: '1',
+                flex: '1.2',
                 position: 'relative',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
-                padding: '4rem',
+                padding: '5rem',
                 color: '#ffffff',
-                background: 'linear-gradient(135deg, rgba(17,17,20,0.9) 0%, rgba(10,10,12,0.95) 100%), url("https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=1200") no-repeat center center/cover',
-                backgroundBlendMode: 'overlay',
-                borderRight: '1px solid rgba(255, 255, 255, 0.03)'
+                background: 'linear-gradient(rgba(10,10,12,0.4), rgba(10,10,12,0.7)), url("https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=1200") no-repeat center center/cover',
+                borderRight: '1px solid var(--border-ghost)',
+                zIndex: 1
             }}>
                 {/* Back button top left corner index */}
                 <motion.button
@@ -70,7 +72,7 @@ const LoginPage = () => {
                         fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', zIndex: 20
                     }}
                 >
-                    <ArrowLeft size={19} style={{ color: '#e11919' }} /> Back to Website
+                    <ArrowLeft size={19} style={{ color: 'var(--accent-primary)' }} /> Back to Website
                 </motion.button>
 
                 <motion.div
@@ -79,20 +81,19 @@ const LoginPage = () => {
                     transition={{ duration: 0.8 }}
                     style={{ maxWidth: '480px', zIndex: 1 }}
                 >
-                    <div style={{
-                        background: 'rgba(255, 255, 255, 0.91)',
-                        padding: '10px 18px',
-                        borderRadius: '12px',
-                        display: 'inline-block',
-                        marginBottom: '2rem',
-                        backdropFilter: 'blur(5px)',
-                        border: '1px solid rgba(255, 255, 255, 0.04)'
+                    <div className="glass" style={{
+                         padding: '12px 28px',
+                         borderRadius: '16px',
+                         display: 'inline-block',
+                         marginBottom: '2.5rem',
+                         background: 'rgba(255, 255, 255, 0.05)',
+                         border: '1px solid rgba(255, 255, 255, 0.1)'
                     }}>
-                        <img src={logo} alt="Tortox Logo" style={{ height: '33px', objectFit: 'contain', display: 'block' }} />
+                        <TortoxLogo color2="#fff" />
                     </div>
 
-                    <h1 style={{ fontSize: '2.5rem', fontWeight: 800, lineHeight: 1.2, marginBottom: '1.2rem', color: '#ffffff' }}>
-                        Innovating <span style={{ color: '#e11919' }}>High-Performance</span> PC Hardware
+                    <h1 className="telemetry" style={{ fontSize: '3.5rem', fontWeight: 900, lineHeight: 1.1, marginBottom: '1.5rem', color: '#ffffff', letterSpacing: '-1px' }}>
+                        INNOVATING <span style={{ color: 'var(--accent-primary)' }}>EXTREME</span><br />HARDWARE
                     </h1>
 
                     <p style={{ color: '#9ca3af', fontSize: '1rem', lineHeight: '1.6', marginBottom: '2rem' }}>
@@ -108,7 +109,7 @@ const LoginPage = () => {
                             { icon: <Cpu size={20} />, title: 'Personalized Solutions', desc: 'Fulfilling desired customizations smoothly properly layout balancing adequately.' }
                         ].map((item, idx) => (
                             <div key={idx} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                                <div style={{ padding: '8px', background: 'rgba(225, 25, 25, 0.1)', borderRadius: '8px', color: '#e11919' }}>
+                                <div style={{ padding: '8px', background: 'rgba(225, 25, 25, 0.1)', borderRadius: '8px', color: 'var(--accent-primary)' }}>
                                     {item.icon}
                                 </div>
                                 <div>
@@ -135,50 +136,57 @@ const LoginPage = () => {
                 justifyContent: 'center',
                 alignItems: 'center',
                 position: 'relative',
-                background: '#fafafa',
-                padding: '2rem'
+                background: '#f8fafc',
+                padding: '2rem',
+                overflow: 'hidden'
             }}>
-                {/* Gradient orb decoration for interactive depth layout parameters indexing accurate setups correctly */}
+                {/* 🌈 iOS Mesh Glows - Background depth for glass vibrant effects correctly framing structure setup indexing properly */}
                 <motion.div
-                    animate={{ x: [0, 40, -10, 0], y: [0, -20, 10, 0] }}
-                    transition={{ duration: 15, repeat: Infinity, ease: 'linear' }}
+                    animate={{ rotate: [0, 360], scale: [1, 1.2, 1] }} 
+                    transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
                     style={{
-                        position: 'absolute', top: '15%', right: '10%', width: '250px', height: '250px',
-                        borderRadius: '50%', background: 'radial-gradient(circle, rgba(225, 25, 25, 0.05) 0%, rgba(225, 25, 25, 0) 70%)',
-                        filter: 'blur(40px)', zIndex: 0
-                    }}
+                        position: 'absolute', top: '10%', right: '15%', width: '400px', height: '400px',
+                        borderRadius: '50%', background: 'radial-gradient(circle, rgba(225, 25, 25, 0.08) 0%, rgba(225, 25, 25, 0) 70%)',
+                        filter: 'blur(60px)', zIndex: 0
+                    }} 
+                />
+                <motion.div
+                    animate={{ x: [0, -50, 50, 0], y: [0, 50, -50, 0] }}
+                    transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
+                    style={{
+                        position: 'absolute', bottom: '15%', left: '10%', width: '350px', height: '350px',
+                        borderRadius: '50%', background: 'radial-gradient(circle, rgba(160, 100, 255, 0.05) 0%, rgba(160, 100, 255, 0) 70%)',
+                        filter: 'blur(50px)', zIndex: 0
+                    }} 
                 />
 
                 <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
+                    initial={{ opacity: 0, scale: 0.98 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    whileHover={{
-                        rotateY: 1,
-                        rotateX: -1,
-                        boxShadow: '0 20px 50px rgba(0,0,0,0.08)'
-                    }}
-                    transition={{ duration: 0.4 }}
+                    className="glass-vibrancy"
                     style={{
-                        background: '#ffffff',
                         width: '100%',
-                        maxWidth: '400px',
-                        padding: '2.8rem 2.5rem',
-                        borderRadius: '20px',
-                        boxShadow: '0 12px 35px rgba(0,0,0,0.03)',
-                        border: '1px solid #f1f5f9',
+                        maxWidth: '460px',
+                        padding: '4rem 4rem',
+                        borderRadius: '38px',
                         display: 'flex',
                         flexDirection: 'column',
-                        alignItems: 'center',
                         zIndex: 10,
-                        perspective: '1000px'
+                        position: 'relative',
+                        boxShadow: '0 30px 60px rgba(0,0,0,0.06), inset 0 0 0 1px rgba(255,255,255,0.8)'
                     }}
                 >
-                    <div style={{ marginBottom: '1.8rem', textAlign: 'center' }}>
-                        <h2 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#111827', letterSpacing: '-0.5px' }}>
-                            Sign <span style={{ color: '#e11919' }}>In</span>
+                    <div style={{
+                        position: 'absolute', top: 0, left: 0, width: '100%', height: '8px',
+                        background: 'var(--accent-primary)',
+                        opacity: 0.9
+                    }} />
+                    <div style={{ marginBottom: '2.5rem', textAlign: 'center' }}>
+                        <h2 className="telemetry" style={{ fontSize: '2rem', fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.5px', textTransform: 'uppercase' }}>
+                            SIGN <span style={{ color: 'var(--accent-primary)' }}>IN</span>
                         </h2>
-                        <p style={{ color: '#6b7280', fontSize: '0.82rem', marginTop: '6px' }}>
-                            Authorized login for administrative index panel configurations accurately setup properly.
+                        <p style={{ color: 'var(--text-dim)', fontSize: '0.88rem', marginTop: '12px', lineHeight: '1.6', fontWeight: 500 }}>
+                            Secure administrative portal Access.<br />Authenticate system credentials.
                         </p>
                     </div>
 
@@ -197,71 +205,79 @@ const LoginPage = () => {
 
                     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem', width: '100%' }}>
                         <div style={{ position: 'relative' }}>
-                            <Mail size={19} style={{ position: 'absolute', left: '14px', top: '14px', color: '#9ca3af' }} />
+                            <Mail size={18} style={{ position: 'absolute', left: '16px', top: '16px', color: 'var(--text-dim)' }} />
                             <input
                                 type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
                                 placeholder="Email Address"
-                                className="interactive-input"
+                                className="interactive-input telemetry"
                                 style={inputStyle}
                             />
                         </div>
 
                         <div style={{ position: 'relative' }}>
-                            <Lock size={19} style={{ position: 'absolute', left: '14px', top: '14px', color: '#9ca3af' }} />
+                            <Lock size={18} style={{ position: 'absolute', left: '16px', top: '16px', color: 'var(--text-dim)' }} />
                             <input
                                 type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)}
                                 placeholder="Password"
-                                className="interactive-input"
+                                className="interactive-input telemetry"
                                 style={inputStyle}
                             />
                             <div
                                 onClick={() => setShowPassword(!showPassword)}
-                                style={{ position: 'absolute', right: '14px', top: '14px', color: '#9ca3af', cursor: 'pointer' }}
+                                style={{ position: 'absolute', right: '16px', top: '16px', color: 'var(--text-dim)', cursor: 'pointer' }}
                             >
-                                {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                             </div>
                         </div>
 
                         <div style={{ textAlign: 'right' }}>
-                            <span style={{ fontSize: '0.78rem', color: '#e11919', cursor: 'pointer', fontWeight: 600 }}>
-                                Forgot Password?
+                            <span className="telemetry" style={{ fontSize: '0.7rem', color: 'var(--accent-primary)', cursor: 'pointer', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                Reset Passkey
                             </span>
                         </div>
 
                         <motion.button
-                            whileHover={{ scale: 1.02, background: '#111827' }}
+                            whileHover={{ scale: 1.02, boxShadow: '0 10px 30px rgba(225, 25, 25, 0.2)' }}
                             whileTap={{ scale: 0.98 }}
                             type="submit"
                             disabled={loading}
+                            className="telemetry tortox-button"
                             style={{
-                                width: '100%', padding: '13px', background: '#e11919', color: '#ffffff',
-                                border: 'none', borderRadius: '10px', fontSize: '0.9rem', fontWeight: 700,
-                                cursor: 'pointer', boxShadow: '0 4px 15px rgba(225, 25, 25, 0.15)',
-                                transition: 'background 0.2s, box-shadow 0.2s', opacity: loading ? 0.7 : 1
+                                width: '100%', padding: '16px', borderRadius: '14px', fontSize: '0.85rem', fontWeight: 900,
+                                cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '2.5px',
+                                transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)', opacity: loading ? 0.7 : 1
                             }}
                         >
-                            {loading ? 'Logging In...' : 'LOG IN'}
+                            {loading ? 'Initializing...' : 'Authorize Login'}
                         </motion.button>
                     </form>
 
-                    <div style={{ textAlign: 'center', marginTop: '1.8rem' }}>
-                        <p style={{ color: '#6b7280', fontSize: '0.82rem' }}>
-                            Join the community? <span style={{ color: '#e11919', fontWeight: 600, cursor: 'pointer' }}>Sign up</span>
+                    <div style={{ textAlign: 'center', marginTop: '2.5rem' }}>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', fontWeight: 600 }}>
+                            No Clearance? <span style={{ color: 'var(--accent-primary)', fontWeight: 800, cursor: 'pointer', textTransform: 'uppercase' }}>Contact Support</span>
                         </p>
                     </div>
                 </motion.div>
             </div>
 
             <style>{`
+                .glass {
+                    background: rgba(255, 255, 255, 0.025) !important;
+                    backdrop-filter: blur(25px) saturate(180%);
+                    -webkit-backdrop-filter: blur(25px) saturate(180%);
+                }
+                .telemetry {
+                    font-family: 'Space Grotesk', sans-serif !important;
+                }
                 .interactive-input {
                     transition: border-color 0.3s, box-shadow 0.3s !important;
                 }
                 .interactive-input:focus {
-                    border-color: #e11919 !important;
-                    box-shadow: 0 0 0 3px rgba(225, 25, 25, 0.06) !important;
+                    border-color: var(--accent-primary) !important;
+                    box-shadow: 0 0 0 4px rgba(225, 25, 25, 0.08) !important;
                 }
                 @media (max-width: 900px) {
-                    aside { display: none !important; } // simply hide left side on small mobile frames adequately
+                    aside { display: none !important; } 
                 }
             `}</style>
         </div>
@@ -270,14 +286,15 @@ const LoginPage = () => {
 
 const inputStyle = {
     width: '100%',
-    padding: '12px 42px 12px 42px',
-    background: '#f8fafc',
-    border: '1px solid #e2e8f0',
-    borderRadius: '10px',
+    padding: '16px 16px 16px 48px',
+    background: 'rgba(0, 0, 0, 0.03)',
+    border: '1px solid rgba(0, 0, 0, 0.1)',
+    borderRadius: '14px',
     fontSize: '0.88rem',
-    color: '#1e293b',
+    color: 'var(--text-main)',
     outline: 'none',
     boxSizing: 'border-box',
+    transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
 };
 
 export default LoginPage;

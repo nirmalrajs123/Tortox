@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Phone, Mail, MapPin, Facebook, Instagram, Twitter, Youtube } from 'lucide-react';
-import logo from '../assets/logo.png';
+import TortoxLogo from './TortoxLogo';
 
 const Footer = () => {
     return (
@@ -30,11 +30,8 @@ const Footer = () => {
                 
                 {/* 🏷️ Column 1: Brand & About */}
                 <div>
-                    <div style={{ 
-                        background: 'rgba(255, 255, 255, 0.95)', padding: '8px 15px', 
-                        borderRadius: '10px', display: 'inline-block', marginBottom: '1.2rem' 
-                    }}>
-                        <img src={logo} alt="Tortox Logo" style={{ height: '28px', objectFit: 'contain', display: 'block' }} />
+                    <div style={{ marginBottom: '1.5rem' }}>
+                        <TortoxLogo size="35px" />
                     </div>
                     <p style={{ fontSize: '0.85rem', lineHeight: '1.6', color: '#6b7280', maxWidth: '300px' }}>
                         Leading provider of high-performance PC peripherals and hardware, tailoring customized setups engineered for the extreme workflow triggers setup safely correctly.
