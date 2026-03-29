@@ -1,9 +1,12 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 
 const ProductCard = ({ product }) => {
+    const navigate = useNavigate();
     return (
         <motion.div
+            onClick={() => navigate(`/product/${product.id}`)}
             whileHover={{ y: -6, scale: 1.01 }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
             style={{

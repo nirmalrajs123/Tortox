@@ -8,6 +8,7 @@ import Dashboard from './components/Dashboard';
 
 import Footer from './components/Footer';
 import ProductListPage from './components/ProductListPage';
+import ProductDetailPage from './components/ProductDetailPage';
 
 function App() {
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
@@ -44,6 +45,9 @@ function App() {
 
               {/* Product List Page */}
               <Route path="/products" element={<ProductListPage />} />
+
+              {/* Product Detail Page */}
+              <Route path="/product/:id" element={<ProductDetailPage />} />
           </Routes>
           
       </div>

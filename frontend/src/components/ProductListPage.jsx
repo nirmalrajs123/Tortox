@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { productService } from '../services/product';
 import { categoryService } from '../services/category';
 import { ChevronRight, Trash2, Search } from 'lucide-react';
@@ -7,6 +8,7 @@ import Navbar from './Navbar';
 import Footer from './Footer';
 
 const ProductListPage = () => {
+    const navigate = useNavigate();
     const [products, setProducts] = useState([]);
     const [categories, setCategories] = useState([]);
     const [selectedCategory, setSelectedCategory] = useState('All');
@@ -142,6 +144,7 @@ const ProductListPage = () => {
                                     key={p.id}
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
+                                    onClick={() => navigate(`/product/${p.id}`)}
                                     onMouseEnter={() => setHoveredId(p.id)}
                                     onMouseLeave={() => setHoveredId(null)}
                                     whileHover={{ boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}
