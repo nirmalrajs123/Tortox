@@ -2,13 +2,24 @@ const { pool } = require('../config/db');
 
 
 const getProducts = async (req, res) => {
+    const { category } = req.query;
     try {
-        const result = await pool.query(`
+        let query = `
             SELECT p.*, 
                    (SELECT image_path FROM product_images WHERE product_id = p.id AND (image_path IS NOT NULL AND image_path != '' AND image_path != '/') ORDER BY (CASE WHEN image_type = 'main' THEN 0 ELSE 1 END), id ASC LIMIT 1) as main_image,
-                   (SELECT hover_path FROM product_images WHERE product_id = p.id AND (hover_path IS NOT NULL AND hover_path != '' AND hover_path != '/') AND image_type = 'hover' LIMIT 1) as hover_image
-            FROM product_details p ORDER BY p.id ASC
-        `);
+                   (SELECT hover_path FROM product_images WHERE product_id = p.id AND (hover_path IS NOT NULL AND hover_path != '' AND hover_path != '/') AND image_type = 'hover' LIMIT 1) as hover_image,
+                   (SELECT COALESCE(json_agg(json_build_object('filter_type_id', filter_type_id, 'filter_value', filter_value)), '[]') FROM product_filters WHERE product_id = p.id AND is_deleted = false) as active_filters,
+                   (SELECT COALESCE(json_agg(DISTINCT color), '[]') FROM variants WHERE product_id = p.id) as available_colors
+            FROM product_details p
+        `;
+        let params = [];
+        if (category && category !== 'All') {
+            query += ` WHERE p.category_id = $1`;
+            params.push(category);
+        }
+        query += ` ORDER BY p.id ASC`;
+
+        const result = await pool.query(query, params);
         const serverHost = `${req.protocol}://${req.get('host')}`;
         const data = result.rows.map(prod => ({
             ...prod,
@@ -28,10 +39,25 @@ const getProducts = async (req, res) => {
     }
 };
 
+const getCategories = async (req, res) => {
+    try {
+        const result = await pool.query(`SELECT id, category_name FROM categorys ORDER BY id ASC`);
+        res.status(200).json({ success: true, data: result.rows });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+
 const getProductById = async (req, res) => {
     const { id } = req.params;
     try {
-        const prodRes = await pool.query('SELECT * FROM product_details WHERE id = $1', [id]);
+        // Support both numeric ID and slug (modal name, case-insensitive)
+        const isNumeric = /^\d+$/.test(id);
+        const query = isNumeric
+            ? 'SELECT p.*, c.category_name FROM product_details p LEFT JOIN categorys c ON p.category_id = c.id WHERE p.id = $1'
+            : "SELECT p.*, c.category_name FROM product_details p LEFT JOIN categorys c ON p.category_id = c.id WHERE REPLACE(LOWER(p.modal), ' ', '-') = LOWER($1)";
+        const prodRes = await pool.query(query, [id]);
         if (prodRes.rows.length === 0) {
             return res.status(404).json({ success: false, message: 'Product not found' });
         }
@@ -39,23 +65,33 @@ const getProductById = async (req, res) => {
         const prod = prodRes.rows[0];
         const serverHost = `${req.protocol}://${req.get('host')}`;
 
-        // 📸 Fetch main and hover from product_images table
-        const mainRows = await pool.query('SELECT image_path FROM product_images WHERE product_id = $1 AND image_type = \'main\' LIMIT 1', [id]);
-        const hoverRows = await pool.query('SELECT hover_path FROM product_images WHERE product_id = $1 AND image_type = \'hover\' LIMIT 1', [id]);
-
-        prod.image = mainRows.rows[0]?.image_path;
-        prod.hover_image = hoverRows.rows[0]?.hover_path;
-
-        // Normalize main images
+        // Normalize paths from prod_details columns
         if (prod.image) prod.image = prod.image.startsWith('http') ? prod.image : `${serverHost}${prod.image.startsWith('/') ? '' : '/'}${prod.image.trim()}`;
         if (prod.hover_image) prod.hover_image = prod.hover_image.startsWith('http') ? prod.hover_image : `${serverHost}${prod.hover_image.startsWith('/') ? '' : '/'}${prod.hover_image.trim()}`;
 
-        // 1. Global Specifications (variant_id = 0)
+        // 📸 Fetch images gallery
+        const imagesRes = await pool.query('SELECT image_path FROM product_images WHERE product_id = $1 AND (image_type IS NULL OR image_type = \'gallery\')', [id]);
+        prod.product_images = imagesRes.rows.map(img => {
+            const p = img.image_path;
+            const fullP = p.startsWith('http') ? p : `${serverHost}${p.startsWith('/') ? '' : '/'}${p.trim()}`;
+            return { ...img, image_path: fullP };
+        });
 
+        // 📸 Re-fetch main and hover if missing in main row (redundancy/safety)
+        if (!prod.image) {
+            const m = await pool.query('SELECT image_path FROM product_images WHERE product_id = $1 AND image_type = \'main\' LIMIT 1', [id]);
+            if (m.rows[0]?.image_path) prod.image = m.rows[0].image_path.startsWith('http') ? m.rows[0].image_path : `${serverHost}${m.rows[0].image_path.startsWith('/') ? '' : '/'}${m.rows[0].image_path.trim()}`;
+        }
+        if (!prod.hover_image) {
+            const h = await pool.query('SELECT hover_path FROM product_images WHERE product_id = $1 AND image_type = \'hover\' LIMIT 1', [id]);
+            if (h.rows[0]?.hover_path) prod.hover_image = h.rows[0].hover_path.startsWith('http') ? h.rows[0].hover_path : `${serverHost}${h.rows[0].hover_path.startsWith('/') ? '' : '/'}${h.rows[0].hover_path.trim()}`;
+        }
+
+        // 📐 Global Specifications (variant_id = 0)
         const specRes = await pool.query('SELECT * FROM specifications WHERE product_id = $1 AND variant_id = 0 AND specification_deleted = false ORDER BY order_id ASC', [id]);
         prod.specifications = specRes.rows;
 
-        // 2. Global Features (variant_id = 0)
+        // ✏️ Global Features (variant_id = 0)
         const featuresRes = await pool.query('SELECT * FROM features WHERE product_id = $1 AND variant_id = 0 AND is_deleted = false', [id]);
         prod.featuresList = featuresRes.rows.map(f => f.features);
 
@@ -187,8 +223,18 @@ const addProduct = async (req, res) => {
         const hoverImage = req.files.find(f => f.fieldname === 'hover_image');
 
         const result = await client.query(
-            `INSERT INTO product_details (category_id, modal) VALUES ($1, $2) RETURNING id`,
-            [category_id || null, modal || null]
+            `INSERT INTO product_details (
+                category_id, modal, modal_name, product_name, 
+                product_description, product_features, mb_compat, 
+                cooler_compat, panel_type, installed_fans, 
+                installed_psu, price
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
+            [
+                category_id || null, modal || null, modal_name || null, product_name || null,
+                product_description || null, product_features || null, mb_compat || null,
+                cooler_compat || null, panel_type || null, installed_fans || null,
+                installed_psu || null, price || 0
+            ]
         );
         const product_id = result.rows[0].id;
 
@@ -336,10 +382,20 @@ const updateProduct = async (req, res) => {
     try {
         await client.query('BEGIN');
 
-        // 1. Update main product details (Basic only)
+        // 1. Update main product details (Full Sync)
         await client.query(
-            `UPDATE product_details SET category_id=$1, modal=$2 WHERE id = $3`,
-            [category_id || null, modal || null, id]
+            `UPDATE product_details SET 
+                category_id=$1, modal=$2, modal_name=$3, product_name=$4, 
+                product_description=$5, product_features=$6, mb_compat=$7, 
+                cooler_compat=$8, panel_type=$9, installed_fans=$10, 
+                installed_psu=$11, price=$12
+             WHERE id = $13`,
+            [
+                category_id || null, modal || null, modal_name || null, product_name || null,
+                product_description || null, product_features || null, mb_compat || null,
+                cooler_compat || null, panel_type || null, installed_fans || null,
+                installed_psu || null, price || 0, id
+            ]
         );
 
         // 📸 Update Main & Hover in product_images table
@@ -696,6 +752,28 @@ const deleteFilterValue = async (req, res) => {
     }
 };
 
+const updateFilterLabel = async (req, res) => {
+    const { id } = req.params;
+    const { filter_label } = req.body;
+    try {
+        await pool.query('UPDATE filter_labels SET filter_label = $1 WHERE id = $2', [filter_label, id]);
+        res.status(200).json({ success: true, message: 'Filter label updated' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Database Error: " + error.message });
+    }
+};
+
+const updateFilterValue = async (req, res) => {
+    const { id } = req.params;
+    const { filter_value } = req.body;
+    try {
+        await pool.query('UPDATE filter_values SET filter_value = $1 WHERE id = $2', [filter_value, id]);
+        res.status(200).json({ success: true, message: 'Filter value updated' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Database Error: " + error.message });
+    }
+};
+
 const saveFullFilter = async (req, res) => {
     const { category_id, filter_label, options = [] } = req.body;
     const client = await pool.connect();
@@ -727,6 +805,7 @@ const saveFullFilter = async (req, res) => {
 module.exports = {
     getProducts,
     getProductById,
+    getCategories,
     addProduct,
     getSpecLabels,
     addSpecLabel,
@@ -740,5 +819,7 @@ module.exports = {
     addFilterValue,
     deleteFilterValue,
     getFilterConfig,
-    saveFullFilter
+    saveFullFilter,
+    updateFilterLabel,
+    updateFilterValue
 };

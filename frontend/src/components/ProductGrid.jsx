@@ -43,14 +43,8 @@ const ProductGrid = () => {
                 transition={{ duration: 0.6 }}
                 style={{ marginBottom: '3rem', textAlign: 'center' }}
             >
-                <h2 style={{ fontSize: '2.5rem', fontWeight: 900, color: '#111827', textTransform: 'uppercase' }}>
-                    <span className="glow-text" style={{ 
-                        background: 'linear-gradient(90deg, #ff2a2a, #ff7b00)', 
-                        WebkitBackgroundClip: 'text', 
-                        WebkitTextFillColor: 'transparent'
-                    }}>
-                        HOT
-                    </span> PRODUCTS
+                <h2 style={{ fontSize: '2.2rem', fontWeight: 800, color: '#1d1d1f', margin: 0 }}>
+                    Hot Products
                 </h2>
                 <p style={{ color: '#4b5563', fontSize: '1rem', marginTop: '8px' }}>
                     Tailored performance components engineered for extreme ultimate workflow setups correctly.

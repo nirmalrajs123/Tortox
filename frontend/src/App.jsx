@@ -10,6 +10,8 @@ import Footer from './components/Footer';
 import ProductListPage from './components/ProductListPage';
 import ProductDetailPage from './components/ProductDetailPage';
 
+import CategoryGrid from './components/CategoryGrid';
+
 function App() {
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
 
@@ -32,6 +34,7 @@ function App() {
                   <>
                       <Navbar toggleTheme={toggleTheme} theme={theme} />
                       <Hero />
+                      <CategoryGrid />
                       <ProductGrid />
                       <Footer />
                   </>
@@ -46,8 +49,9 @@ function App() {
               {/* Product List Page */}
               <Route path="/products" element={<ProductListPage />} />
 
-              {/* Product Detail Page */}
+              {/* Product Detail Page - by ID (legacy) and by slug (SEO) */}
               <Route path="/product/:id" element={<ProductDetailPage />} />
+              <Route path="/products/:slug" element={<ProductDetailPage usesSlug />} />
           </Routes>
           
       </div>

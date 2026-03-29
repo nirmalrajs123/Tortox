@@ -2,8 +2,18 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
-    LayoutDashboard, ShoppingBag, Users, Settings, LogOut, PlusCircle, Edit, X, Trash2,
-    Search, Bell, Package, Box, Activity, FileText, LayoutGrid, ListFilter, ChevronRight
+    ShoppingBag,
+    LayoutDashboard,
+    Users,
+    Settings,
+    LogOut,
+    PlusCircle,
+    Box,
+    AlertCircle,
+    Trash2,
+    Edit3,
+    CheckCircle2,
+    X
 } from 'lucide-react';
 import { productService } from '../services/product'; // ➕ Use productService
 import TortoxLogo from './TortoxLogo';
@@ -21,8 +31,10 @@ const Dashboard = () => {
     const [user, setUser] = useState(null);
     const [currentView, setCurrentView] = useState('dashboard');
     const [settingsTab, setSettingsTab] = useState('categories');
+    const [loading, setLoading] = useState(true);
     const [showAddForm, setShowAddForm] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
+    const [confirmModal, setConfirmModal] = useState({ show: false, id: null, title: '' });
     const [showViewModal, setShowViewModal] = useState(false);
 
     const loadProducts = async () => {
@@ -178,7 +190,7 @@ const Dashboard = () => {
                                         </motion.div>
                                     </div>
                                 )}
-                                
+
                                 {currentView === 'products' && (
                                     <div style={{ width: '100%' }}>
                                         <header style={{ marginBottom: '3rem' }}>
@@ -237,9 +249,23 @@ const Dashboard = () => {
                                                                     </div>
                                                                 </td>
                                                                 <td style={{ padding: '20px 24px' }}>
-                                                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                                                        <button onClick={() => handleEdit(prod.id)} style={{ padding: '8px 16px', borderRadius: '8px', background: 'var(--bg-primary)', color: 'var(--text-dim)', border: '1px solid var(--border-ghost)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}>Edit</button>
-                                                                        <button onClick={async () => { if (window.confirm("Purge?")) { try { await productService.delete(prod.id); loadProducts(); } catch (e) { console.error(e); } } }} style={{ padding: '8px 16px', borderRadius: '8px', background: 'transparent', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}>Purge</button>
+                                                                    <div style={{ display: 'flex', gap: '12px' }}>
+                                                                        <motion.button
+                                                                            whileHover={{ scale: 1.05, background: 'var(--bg-primary)', color: 'var(--accent-primary)' }}
+                                                                            whileTap={{ scale: 0.95 }}
+                                                                            onClick={() => handleEdit(prod.id)}
+                                                                            style={{ padding: '8px 16px', borderRadius: '10px', background: 'transparent', color: 'var(--text-dim)', border: '1px solid var(--border-ghost)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s' }}
+                                                                        >
+                                                                            <Edit3 size={14} /> EDIT
+                                                                        </motion.button>
+                                                                        <motion.button
+                                                                            whileHover={{ scale: 1.05, background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderColor: '#ef4444' }}
+                                                                            whileTap={{ scale: 0.95 }}
+                                                                            onClick={() => setConfirmModal({ show: true, id: prod.id, title: prod.modal || prod.name })}
+                                                                            style={{ padding: '8px 16px', borderRadius: '10px', background: 'transparent', color: 'rgba(239, 68, 68, 0.7)', border: '1px solid rgba(239, 68, 68, 0.2)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s' }}
+                                                                        >
+                                                                            <Trash2 size={14} /> DELETE
+                                                                        </motion.button>
                                                                     </div>
                                                                 </td>
                                                             </motion.tr>
@@ -275,6 +301,49 @@ const Dashboard = () => {
             </div>
 
             <AddProductModal isOpen={showAddForm} onClose={() => { setShowAddForm(false); setSelectedProduct(null); }} onSuccess={loadProducts} productToEdit={selectedProduct} />
+            {/* 🛡️ Modern Confirm Modal */}
+            <AnimatePresence>
+                {confirmModal.show && (
+                    <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-ghost)', borderRadius: '32px', width: '100%', maxWidth: '400px', padding: '40px', textAlign: 'center' }}
+                        >
+                            <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+                                <AlertCircle size={40} color="#ef4444" />
+                            </div>
+                            <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '12px', color: 'var(--text-main)' }}>Confirm Delete?</h2>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.6', marginBottom: '32px' }}>
+                                You are about to permanently delete <span style={{ color: 'var(--accent-primary)', fontWeight: 800 }}>{confirmModal.title}</span> from the tactical inventory. This action cannot be undone.
+                            </p>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                                <button
+                                    onClick={() => setConfirmModal({ show: false, id: null, title: '' })}
+                                    style={{ padding: '16px', borderRadius: '16px', border: '1px solid var(--border-ghost)', background: 'transparent', color: 'var(--text-dim)', fontWeight: 800, cursor: 'pointer', fontSize: '0.85rem' }}
+                                >
+                                    CANCEL
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            await productService.delete(confirmModal.id);
+                                            loadProducts();
+                                            setConfirmModal({ show: false, id: null, title: '' });
+                                        } catch (e) {
+                                            console.error(e);
+                                        }
+                                    }}
+                                    style={{ padding: '16px', borderRadius: '16px', border: 'none', background: '#ef4444', color: '#fff', fontWeight: 900, cursor: 'pointer', fontSize: '0.85rem', boxShadow: '0 10px 20px rgba(239, 68, 68, 0.2)' }}
+                                >
+                                    DELETE UNIT
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

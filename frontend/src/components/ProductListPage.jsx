@@ -1,197 +1,213 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { productService } from '../services/product';
 import { categoryService } from '../services/category';
-import { ChevronRight, Trash2, Search } from 'lucide-react';
+import { ChevronRight, Trash2, Search, Filter as FilterIcon, SlidersHorizontal } from 'lucide-react';
 import Navbar from './Navbar';
 import Footer from './Footer';
 
 const ProductListPage = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const categoryFromUrl = searchParams.get('category');
+    
     const [products, setProducts] = useState([]);
     const [categories, setCategories] = useState([]);
-    const [selectedCategory, setSelectedCategory] = useState('All');
+    const [filterConfig, setFilterConfig] = useState([]); // Array of { id, filter_label, values: [{id, filter_value}] }
+    const [selectedFilters, setSelectedFilters] = useState({}); // { labelId: [value1, value2] }
     const [loading, setLoading] = useState(true);
     const [hoveredId, setHoveredId] = useState(null);
-    
-    // Filter states
-    const [mbSupport, setMbSupport] = useState([]);
-    const [liquidCooler, setLiquidCooler] = useState([]);
 
     useEffect(() => {
-        const loadData = async () => {
+        const loadPageData = async () => {
             try {
                 setLoading(true);
+                // 1. Load Categories & Products (filtered by cat if present)
                 const [prodRes, catRes] = await Promise.all([
-                    productService.getAll(),
+                    productService.getAll(categoryFromUrl),
                     categoryService.getAll()
                 ]);
                 setProducts(prodRes.data?.data || []);
                 setCategories(catRes.data?.data || []);
+
+                // 2. Load Dynamic Filter Config for this category
+                if (categoryFromUrl && categoryFromUrl !== 'all') {
+                    const filterRes = await productService.getFilterConfig(categoryFromUrl);
+                    setFilterConfig(filterRes.data?.data || []);
+                } else {
+                    setFilterConfig([]);
+                }
+                
+                // Reset active filters when category changes
+                setSelectedFilters({});
             } catch (err) {
-                console.error('Failed to load products:', err);
+                console.error('Relay fetch failed:', err);
             } finally {
                 setLoading(false);
             }
         };
-        loadData();
-    }, []);
+        loadPageData();
+        window.scrollTo(0, 0);
+    }, [categoryFromUrl]);
 
-    const toggleFilter = (list, setList, value) => {
-        if (list.includes(value)) {
-            setList(list.filter(item => item !== value));
+    const toggleFilter = (labelId, value) => {
+        const current = selectedFilters[labelId] || [];
+        if (current.includes(value)) {
+            setSelectedFilters({ ...selectedFilters, [labelId]: current.filter(v => v !== value) });
         } else {
-            setList([...list, value]);
+            setSelectedFilters({ ...selectedFilters, [labelId]: [...current, value] });
         }
     };
 
-    const resetFilters = () => {
-        setMbSupport([]);
-        setLiquidCooler([]);
-        setSelectedCategory('All');
-    };
+    const resetFilters = () => setSelectedFilters({});
+
+    const currentCategoryName = categories.find(c => String(c.id) === String(categoryFromUrl))?.category_name || 'All Products';
 
     const filteredProducts = products.filter(p => {
-        const matchesCategory = selectedCategory === 'All' || String(p.category_id) === String(selectedCategory);
-        
-        // Advanced filtering based on specs in DB
-        let specs = {};
-        try {
-            specs = typeof p.specs === 'string' ? JSON.parse(p.specs) : (p.specs || {});
-        } catch(e) {}
-
-        const mbValue = specs.mb_compat?.value || p.mb_compat;
-        const matchesMb = mbSupport.length === 0 || mbSupport.some(m => mbValue?.includes(m));
-
-        const coolerValue = specs.cooler_compat?.value || p.cooler_compat;
-        const matchesCooler = liquidCooler.length === 0 || liquidCooler.some(c => coolerValue?.includes(c));
-
-        return matchesCategory && matchesMb && matchesCooler;
+        // Multi-dimensional filter logic
+        return Object.entries(selectedFilters).every(([labelId, activeValues]) => {
+            if (activeValues.length === 0) return true;
+            // A product matches if any of its filters match any of the active values for this labelId
+            const productFilters = p.active_filters || [];
+            return activeValues.some(val => 
+                productFilters.some(pf => String(pf.filter_type_id) === String(labelId) && pf.filter_value === val)
+            );
+        });
     });
 
     return (
-        <div style={{ backgroundColor: '#f5f5f7', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ backgroundColor: '#ffffff', minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'Inter, sans-serif' }}>
             <Navbar />
 
-            {/* Breadcrumb Section */}
-            <div style={{ marginTop: '80px', padding: '20px 60px', backgroundColor: '#f5f5f7' }}>
-                <div style={{ maxWidth: '1440px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '8px', color: '#86868b', fontSize: '0.8rem' }}>
-                    <span>Home</span> <ChevronRight size={12} />
-                    <span>Products</span> <ChevronRight size={12} />
-                    <span style={{ color: '#1d1d1f', fontWeight: 500 }}>PC Case</span>
+            {/* Tactical Breadcrumb */}
+            <div style={{ marginTop: '80px', padding: '30px 60px', borderBottom: '1px solid #f0f0f0' }}>
+                <div style={{ maxWidth: '1440px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '8px', color: '#86868b', fontSize: '0.85rem' }}>
+                    <span onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>Home</span> 
+                    <ChevronRight size={14} />
+                    <span onClick={() => navigate('/products')} style={{ cursor: 'pointer' }}>Products</span>
+                    {categoryFromUrl && (
+                        <>
+                            <ChevronRight size={14} />
+                            <span style={{ color: '#000', fontWeight: 700 }}>{currentCategoryName}</span>
+                        </>
+                    )}
                 </div>
             </div>
 
-            <main style={{ maxWidth: '1440px', margin: '0 auto', width: '100%', padding: '0 60px 80px', display: 'flex', gap: '40px', boxSizing: 'border-box' }}>
+            <main style={{ maxWidth: '1440px', margin: '0 auto', width: '100%', padding: '60px', display: 'flex', gap: '60px', boxSizing: 'border-box' }}>
                 
-                {/* 🛡️ Sidebar Filters */}
-                <aside style={{ width: '240px', flexShrink: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', borderBottom: '1px solid #d2d2d7', paddingBottom: '15px' }}>
-                        <h2 style={{ fontSize: '1.4rem', fontWeight: 700, margin: 0, color: '#1d1d1f' }}>Filter</h2>
-                        <Trash2 size={18} style={{ color: '#86868b', cursor: 'pointer' }} onClick={resetFilters} />
-                    </div>
-
-                    {/* Mb Support */}
-                    <div style={{ marginBottom: '35px' }}>
-                        <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '15px', color: '#1d1d1f' }}>Motherboard Support</h3>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                            {['E-ATX', 'ATX', 'M-ATX', 'ITX'].map(mb => (
-                                <label key={mb} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', color: '#424245', cursor: 'pointer' }}>
-                                    <input 
-                                        type="checkbox" 
-                                        checked={mbSupport.includes(mb)} 
-                                        onChange={() => toggleFilter(mbSupport, setMbSupport, mb)}
-                                        style={checkboxStyle} 
-                                    />
-                                    {mb}
-                                </label>
-                            ))}
+                {/* 🛡️ Dynamic Sidebar Filters */}
+                <aside style={{ width: '280px', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', paddingBottom: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <SlidersHorizontal size={20} color="#e11919" />
+                            <h2 style={{ fontSize: '1.2rem', fontWeight: 900, margin: 0, color: '#1d1d1f', letterSpacing: '-0.5px' }}>FILTER</h2>
                         </div>
+                        <Trash2 size={16} style={{ color: '#ccc', cursor: 'pointer', transition: '0.2s' }} onMouseEnter={e => e.target.style.color='#e11919'} onMouseLeave={e => e.target.style.color='#ccc'} onClick={resetFilters} />
                     </div>
 
-                    <div style={{ height: '1px', background: '#d2d2d7', marginBottom: '30px' }} />
-
-                    {/* Liquid Cooler Support */}
-                    <div style={{ marginBottom: '35px' }}>
-                        <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '15px', color: '#1d1d1f' }}>Liquid Cooler Support</h3>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                            {['120mm', '140mm', '240mm', '280mm', '360mm', '480mm'].map(sz => (
-                                <label key={sz} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', color: '#424245', cursor: 'pointer' }}>
-                                    <input 
-                                        type="checkbox" 
-                                        checked={liquidCooler.includes(sz)} 
-                                        onChange={() => toggleFilter(liquidCooler, setLiquidCooler, sz)}
-                                        style={checkboxStyle} 
-                                    />
-                                    {sz}
-                                </label>
-                            ))}
+                    {filterConfig.map(group => (
+                        <div key={group.id} style={{ marginBottom: '40px' }}>
+                            <h3 style={{ fontSize: '0.85rem', fontWeight: 800, marginBottom: '20px', color: '#1d1d1f', textTransform: 'uppercase', letterSpacing: '1px' }}>{group.filter_label}</h3>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {group.values.map(val => (
+                                    <label key={val.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.95rem', color: '#424245', cursor: 'pointer', fontWeight: 500 }}>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={(selectedFilters[group.id] || []).includes(val.filter_value)} 
+                                            onChange={() => toggleFilter(group.id, val.filter_value)}
+                                            style={checkboxStyle} 
+                                        />
+                                        {val.filter_value}
+                                    </label>
+                                ))}
+                            </div>
                         </div>
-                    </div>
+                    ))}
+                    
+                    {filterConfig.length === 0 && !loading && (
+                        <div style={{ padding: '20px', background: '#f9fafb', borderRadius: '12px', textAlign: 'center', fontSize: '0.85rem', color: '#999' }}>
+                            Select a specific category to load tactical filtering dimensions.
+                        </div>
+                    )}
                 </aside>
 
-                {/* 📦 Product Grid */}
+                {/* 📦 Product Grid Section */}
                 <section style={{ flexGrow: 1 }}>
                     {loading ? (
                         <div style={{ height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <div className="loader" />
                         </div>
                     ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
-                            {filteredProducts.map((p) => (
-                                <motion.div
-                                    key={p.id}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    onClick={() => navigate(`/product/${p.id}`)}
-                                    onMouseEnter={() => setHoveredId(p.id)}
-                                    onMouseLeave={() => setHoveredId(null)}
-                                    whileHover={{ boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}
-                                    style={{
-                                        background: '#fff',
-                                        borderRadius: '12px',
-                                        padding: '24px',
-                                        position: 'relative',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        transition: 'all 0.3s ease'
-                                    }}
-                                >
-                                    <span style={{
-                                        position: 'absolute', top: '15px', left: '15px',
-                                        background: '#000', color: '#fff', padding: '4px 12px',
-                                        borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, zIndex: 2
-                                    }}>New</span>
+                        <>
+                            <div style={{ marginBottom: '30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <p style={{ color: '#86868b', fontSize: '0.9rem', fontWeight: 500 }}>
+                                    Showing <span style={{ color: '#000', fontWeight: 700 }}>{filteredProducts.length}</span> individual tactical units
+                                </p>
+                            </div>
 
-                                    <div style={{ width: '100%', aspectRatio: '1/1', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', position: 'relative' }}>
-                                        <img 
-                                            src={(hoveredId === p.id && p.hover_image) ? (p.hover_image.startsWith('http') ? p.hover_image : `http://localhost:5000${p.hover_image}`) : (p.product_images?.[0]?.image_path || p.image || 'https://via.placeholder.com/300')} 
-                                            alt={p.alt_text || p.product_name} 
-                                            style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain', transition: 'all 0.3s' }}
-                                        />
-                                    </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '30px' }}>
+                                {filteredProducts.map((p) => (
+                                    <motion.div
+                                        key={p.id}
+                                        initial={{ opacity: 0, scale: 0.98 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        onClick={() => navigate(`/product/${p.id}`)}
+                                        onMouseEnter={() => setHoveredId(p.id)}
+                                        onMouseLeave={() => setHoveredId(null)}
+                                        whileHover={{ y: -5 }}
+                                        style={{
+                                            background: '#fff',
+                                            borderRadius: '20px',
+                                            padding: '30px',
+                                            position: 'relative',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            border: '1px solid #f0f0f0',
+                                            transition: 'border 0.3s ease'
+                                        }}
+                                    >
+                                        <span style={{
+                                            position: 'absolute', top: '20px', left: '20px',
+                                            background: '#000', color: '#fff', padding: '4px 14px',
+                                            borderRadius: '6px', fontSize: '0.7rem', fontWeight: 800, zIndex: 2
+                                        }}>NEW RELEASE</span>
 
-                                    <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#000', margin: '0 0 8px 0', textTransform: 'uppercase' }}>
-                                        {p.product_name}
-                                    </h3>
-                                    
-                                    <div style={{ fontSize: '0.85rem', color: '#86868b', fontWeight: 500, marginBottom: '20px' }}>
-                                        {p.modal} / {(() => {
-                                             let specs = {};
-                                             try { specs = typeof p.specs === 'string' ? JSON.parse(p.specs) : (p.specs || {}); } catch(e) {}
-                                             return specs.dimensions?.value || 'Standard Size';
-                                        })()}
-                                    </div>
+                                        <div style={{ width: '100%', aspectRatio: '1/1', marginBottom: '25px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', position: 'relative', overflow: 'hidden' }}>
+                                            <motion.img 
+                                                src={(hoveredId === p.id && p.hover_image) ? p.hover_image : (p.image || 'https://via.placeholder.com/400')} 
+                                                alt={p.product_name} 
+                                                style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain' }}
+                                                animate={{ scale: hoveredId === p.id ? 1.05 : 1 }}
+                                            />
+                                        </div>
 
-                                    <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                                        <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#000', border: '2px solid #fff', boxShadow: '0 0 0 1px #d2d2d7' }} />
-                                        <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#f5f5f7', border: '2px solid #fff', boxShadow: '0 0 0 1px #d2d2d7' }} />
-                                    </div>
-                                </motion.div>
-                            ))}
-                        </div>
+                                        <h3 style={{ fontSize: '1.4rem', fontWeight: 900, color: '#000', margin: '0 0 10px 0', letterSpacing: '-0.5px' }}>
+                                            {p.modal || p.product_name}
+                                        </h3>
+                                        
+                                        <div style={{ fontSize: '0.9rem', color: '#86868b', fontWeight: 600, marginBottom: '25px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                            {p.product_name || 'Standard Tactical Gear'}
+                                        </div>
+
+                                        <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                            <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: '#000', border: '2px solid #fff', boxShadow: '0 0 0 1px #eee' }} />
+                                            <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: '#fff', border: '2px solid #fff', boxShadow: '0 0 0 1px #eee' }} />
+                                        </div>
+                                    </motion.div>
+                                ))}
+                            </div>
+                            
+                            {filteredProducts.length === 0 && (
+                                <div style={{ padding: '100px', textAlign: 'center', background: '#f9fafb', borderRadius: '24px' }}>
+                                    <Search size={40} color="#ccc" style={{ marginBottom: '20px' }} />
+                                    <h3 style={{ fontWeight: 800 }}>No Units Found</h3>
+                                    <p style={{ color: '#86868b' }}>Try adjusting your tactical filters or selection.</p>
+                                </div>
+                            )}
+                        </>
                     )}
                 </section>
             </main>
@@ -199,7 +215,7 @@ const ProductListPage = () => {
             <Footer />
 
             <style>{`
-                .loader { width: 30px; height: 30px; border: 3px solid #f3f3f3; border-top: 3px solid #000; border-radius: 50%; animation: spin 0.8s linear infinite; }
+                .loader { width: 35px; height: 35px; border: 4px solid #f3f3f3; border-top: 4px solid #e11919; border-radius: 50%; animation: spin 0.8s linear infinite; }
                 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
             `}</style>
         </div>
@@ -212,7 +228,7 @@ const checkboxStyle = {
     borderRadius: '4px',
     border: '1px solid #d2d2d7',
     cursor: 'pointer',
-    accentColor: '#000'
+    accentColor: '#e11919'
 };
 
 export default ProductListPage;

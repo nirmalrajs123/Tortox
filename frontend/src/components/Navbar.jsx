@@ -26,13 +26,18 @@ const Navbar = ({ toggleTheme, theme }) => {
         {
             title: 'Products',
             items: categories.length > 0
-                ? categories.map(c => c.category_name)
-                : ['Chassis / Case', 'Liquid Coolers', 'ARGB Fans', 'Power Supply', 'Gaming Mice']
+                ? categories.map(c => ({ name: c.category_name, id: c.id }))
+                : [
+                    { name: 'PC CASES', id: 'all' },
+                    { name: 'POWER SUPPLY', id: 'all' },
+                    { name: 'LIQUID COOLER', id: 'all' },
+                    { name: 'AIR COOLER', id: 'all' }
+                  ]
         },
-        { title: 'About', items: ['Company Profile', 'News & Events', 'Quality & Design'] },
-        { title: 'Community', items: ['User Forums', 'Wallpaper', 'Newsletter'] },
-        { title: 'Support', items: ['Downloads', 'Warranty RMA', 'Tech Help'] },
-        { title: 'Contact', items: ['Global Offices', 'Business Support'] }
+        { title: 'About', items: [{ name: 'Company Profile' }, { name: 'News & Events' }, { name: 'Quality & Design' }] },
+        { title: 'Community', items: [{ name: 'User Forums' }, { name: 'Wallpaper' }, { name: 'Newsletter' }] },
+        { title: 'Support', items: [{ name: 'Downloads' }, { name: 'Warranty RMA' }, { name: 'Tech Help' }] },
+        { title: 'Contact', items: [{ name: 'Global Offices' }, { name: 'Business Support' }] }
     ];
 
     return (
@@ -48,7 +53,6 @@ const Navbar = ({ toggleTheme, theme }) => {
                 transition: 'all 0.3s ease'
             }}
         >
-            {/* Logo Group */}
             <div
                 style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
                 onClick={() => navigate('/')}
@@ -56,7 +60,6 @@ const Navbar = ({ toggleTheme, theme }) => {
                 <TortoxLogo size="35px" />
             </div>
 
-            {/* Nav Links - Centered with interactive Dropdown triggers indices framing appropriately */}
             <ul style={{
                 display: 'flex', gap: '2.5rem', listStyle: 'none', margin: 0, padding: 0, position: 'relative'
             }}>
@@ -84,7 +87,6 @@ const Navbar = ({ toggleTheme, theme }) => {
                             </motion.div>
                         </motion.div>
 
-                        {/* Interactive Dropdown Box List framing container securely safely properly */}
                         <AnimatePresence>
                             {hoveredItem === item.title && (
                                 <motion.div
@@ -102,16 +104,23 @@ const Navbar = ({ toggleTheme, theme }) => {
                                     {item.items.map((sub, idx) => (
                                         <motion.div
                                             key={idx}
-                                            onClick={() => navigate('/products')}
+                                            onClick={() => {
+                                                if (item.title === 'Products') {
+                                                    navigate(`/products?category=${sub.id}`);
+                                                } else {
+                                                    navigate('/products');
+                                                }
+                                                setHoveredItem(null);
+                                            }}
                                             whileHover={{ background: 'var(--bg-primary)', color: 'var(--accent-primary)', x: 4 }}
                                             transition={{ duration: 0.15 }}
                                             style={{
                                                 padding: '8px 14px', borderRadius: '8px', fontSize: '0.85rem',
                                                 color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 500,
-                                                whiteSpace: 'nowrap'
+                                                whiteSpace: 'nowrap', textTransform: 'uppercase'
                                             }}
                                         >
-                                            {sub}
+                                            {sub.name}
                                         </motion.div>
                                     ))}
                                 </motion.div>
@@ -121,7 +130,6 @@ const Navbar = ({ toggleTheme, theme }) => {
                 ))}
             </ul>
 
-            {/* Actions Icons - Right side */}
             <div style={{ display: 'flex', gap: '1.2rem', alignItems: 'center' }}>
                 <motion.button
                     onClick={toggleTheme}

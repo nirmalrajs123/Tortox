@@ -55,6 +55,18 @@ const initializeDatabase = async () => {
         ALTER TABLE product_details ADD COLUMN IF NOT EXISTS hover_image TEXT;
         ALTER TABLE product_details ADD COLUMN IF NOT EXISTS alt_text TEXT;
         ALTER TABLE product_details ADD COLUMN IF NOT EXISTS meta_tags TEXT;
+        ALTER TABLE product_details ADD COLUMN IF NOT EXISTS product_name TEXT;
+        ALTER TABLE product_details ADD COLUMN IF NOT EXISTS modal_name TEXT;
+        ALTER TABLE product_details ADD COLUMN IF NOT EXISTS product_features TEXT;
+        ALTER TABLE product_details ADD COLUMN IF NOT EXISTS product_description TEXT;
+        ALTER TABLE product_details ADD COLUMN IF NOT EXISTS mb_compat TEXT;
+        ALTER TABLE product_details ADD COLUMN IF NOT EXISTS cooler_compat TEXT;
+        ALTER TABLE product_details ADD COLUMN IF NOT EXISTS panel_type TEXT;
+        ALTER TABLE product_details ADD COLUMN IF NOT EXISTS installed_fans TEXT;
+        ALTER TABLE product_details ADD COLUMN IF NOT EXISTS installed_psu TEXT;
+        ALTER TABLE product_details ADD COLUMN IF NOT EXISTS price DECIMAL(10, 2);
+        ALTER TABLE product_details ADD COLUMN IF NOT EXISTS image TEXT;
+        ALTER TABLE product_details ADD COLUMN IF NOT EXISTS specs JSONB;
     `;
 
     // 2. Create Users Table for Dashboard CMS

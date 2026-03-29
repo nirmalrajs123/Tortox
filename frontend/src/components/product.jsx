@@ -311,8 +311,8 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
     // Handlers list updates trigger safely
     const handleSaveSpecLabel = async () => {
         const trimmedTitle = newLabelTitle.trim();
-        if (!trimmedTitle) return alert("Please type a label title!");
-        if (!category) return alert("Please select a Category from the dropdown first!");
+        if (!trimmedTitle) { setStatusMessage("Required: Label Title"); setStatusType('error'); return; }
+        if (!category) { setStatusMessage("Required: Category Selection"); setStatusType('error'); return; }
         try {
             const res = await productService.addSpecLabel({ category_id: category, spec_label: trimmedTitle });
             if (res.data.success) {
@@ -337,13 +337,14 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
             }
         } catch (e) {
             console.error("Add Spec Label Error:", e);
-            alert("Error: " + (e.response?.data?.message || e.message));
+            setStatusMessage("Error: " + (e.response?.data?.message || e.message));
+            setStatusType('error');
         }
     };
 
     const handleAddFilterType = async () => {
-        if (!newFilterTitle.trim()) return alert("Please type a filter label!");
-        if (!category) return alert("Please select a Category first!");
+        if (!newFilterTitle.trim()) { setStatusMessage("Required: Filter Label"); setStatusType('error'); return; }
+        if (!category) { setStatusMessage("Required: Category Selection"); setStatusType('error'); return; }
         try {
             const res = await productService.addFilterLabel({
                 category_id: category,
@@ -371,7 +372,8 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
             }
         } catch (e) {
             console.error("Add Filter Label Error:", e);
-            alert("Error: " + (e.response?.data?.message || e.message));
+            setStatusMessage("Error: " + (e.response?.data?.message || e.message));
+            setStatusType('error');
         }
     };
 
@@ -428,16 +430,16 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
         e.preventDefault();
 
 
-        if (!category) return alert("Please select a Category!");
+        if (!category) { setStatusMessage("Required: Category Selection"); setStatusType('error'); return; }
 
         // 📸 REQUIRE IMAGES AS PER USER REQUEST
         if (productImages.length === 0) {
             setActiveTab('Product Images');
-            return alert("Please add at least one Product Image!");
+            setStatusMessage("Required: At least one Image"); setStatusType('error'); return;
         }
         if (!hoverImage && !hoverImageFile) {
             setActiveTab('Product Images');
-            return alert("Please set a Hover Image!");
+            setStatusMessage("Required: Hover Image Asset"); setStatusType('error'); return;
         }
 
         const formData = new FormData();

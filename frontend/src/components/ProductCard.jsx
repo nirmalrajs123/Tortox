@@ -4,150 +4,118 @@ import { useNavigate } from 'react-router-dom';
 
 const ProductCard = ({ product }) => {
     const navigate = useNavigate();
+
+    // Helper to get specs safe properly flawlessly
+    const getSpec = (key) => {
+        let specs = {};
+        try {
+            specs = typeof product.specs === 'string' ? JSON.parse(product.specs) : (product.specs || {});
+        } catch (e) { }
+        return specs[key]?.value || product[key] || '';
+    };
+
+    const mb = getSpec('mb_compat');
+    const dims = getSpec('dimensions');
+
     return (
         <motion.div
-            onClick={() => navigate(`/product/${product.id}`)}
-            whileHover={{ y: -6, scale: 1.01 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
+            onClick={() => {
+                const slug = product.modal ? product.modal.toLowerCase().replace(/\s+/g, '-') : product.id;
+                navigate(`/products/${slug}`);
+            }}
+            whileHover={{ y: -5 }}
+            transition={{ duration: 0.3 }}
             style={{
-                borderRadius: '16px',
-                padding: '1.5rem',
-                border: '1px solid rgba(0, 0, 0, 0.04)',
                 background: '#ffffff',
-                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.03)',
-                flexDirection: 'column',
+                borderRadius: '16px',
+                padding: '2rem 1.5rem',
                 display: 'flex',
-                gap: '15px',
+                flexDirection: 'column',
+                cursor: 'pointer',
                 position: 'relative',
-                overflow: 'hidden'
+                transition: 'box-shadow 0.3s ease'
             }}
         >
-            {/* HOT Badge */}
-            <span style={{
-                position: 'absolute',
-                top: '15px',
-                left: '15px',
-                background: 'linear-gradient(135deg, #e11919, #900a0a)',
-                color: '#ffffff',
-                padding: '3px 9px',
-                borderRadius: '8px',
-                fontSize: '0.65rem',
-                fontWeight: 800,
-                boxShadow: '0 2px 10px rgba(225, 25, 25, 0.2)',
-                letterSpacing: '0.5px',
-                zIndex: 10
-            }}>
-                HOT
-            </span>
-
-            {/* category badge */}
-            <span style={{
-                position: 'absolute',
-                top: '15px',
-                right: '15px',
-                background: 'rgba(0,0,0,0.03)',
-                border: '1px solid rgba(0,0,0,0.02)',
-                padding: '4px 10px',
-                borderRadius: '12px',
-                fontSize: '0.75rem',
-                color: '#4b5563',
-                zIndex: 10
-            }}>
-                {product.category}
-            </span>
-
-            {/* image container */}
+            {/* Image Container setup framing flawlessly perfectly flawlessly */}
             <div style={{
                 width: '100%',
-                height: '180px',
-                borderRadius: '12px',
-                background: '#f8fafc',
+                aspectRatio: '1/1',
                 display: 'flex',
-                justifyContent: 'center',
                 alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '1.5rem',
                 overflow: 'hidden'
             }}>
-                <motion.img
-                    src={product.image}
-                    alt={product.name}
+                <img
+                    src={product.main_image || product.image || 'https://via.placeholder.com/300'}
+                    alt={product.product_name}
                     style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        transition: 'transform 0.4s ease'
+                        maxWidth: '90%',
+                        maxHeight: '90%',
+                        objectFit: 'contain'
                     }}
-                    whileHover={{ scale: 1.06 }}
                 />
             </div>
 
-            {/* Content */}
-            <div>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#111827', marginBottom: '6px' }}>
-                    {product.product_name || product.name || 'Unnamed Product'}
-                </h3>
-                <p style={{ fontSize: '0.85rem', color: '#4b5563', lineHeight: '1.4', marginBottom: '15px' }}>
-                    {product.product_description || product.description || 'No description available.'}
-                </p>
+            {/* Info Section framing securely correctly framing */}
+            <h3 style={{
+                fontSize: '1.15rem',
+                fontWeight: 700,
+                color: '#1d1d1f',
+                margin: '0 0 4px 0',
+                letterSpacing: '-0.3px',
+                textAlign: 'left'
+            }}>
+                {product.product_name || product.modal || 'Unnamed Unit'}
+            </h3>
+
+            <div style={{
+                fontSize: '0.85rem',
+                color: '#6e6e73',
+                fontWeight: 500,
+                textAlign: 'left',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+            }}>
+                {mb} {mb && dims ? '/' : ''} {dims}
+                {(!mb && !dims) && 'Tactical Performance Unit'}
             </div>
 
-            {/* specs */}
+            {/* Dynamic Color Indicator Dots setup securely correctly flaws decently trigger flawlessly */}
             <div style={{
                 marginTop: 'auto',
                 display: 'flex',
-                flexWrap: 'wrap',
-                gap: '6px'
+                justifyContent: 'flex-end',
+                gap: '8px',
+                paddingTop: '10px'
             }}>
-                {(() => {
-                    let parsedSpecs = {};
-                    try {
-                        parsedSpecs = typeof product.specs === 'string' ? JSON.parse(product.specs) : (product.specs || {});
-                    } catch (e) {}
-                    if (parsedSpecs && typeof parsedSpecs === 'object') {
-                        return Object.entries(parsedSpecs).slice(0, 3).map(([key, item]) => {
-                            const val = item && typeof item === 'object' ? item.value : item;
-                            if (!val) return null;
-                            return (
-                                <span key={key} style={{
-                                    background: 'rgba(225, 25, 25, 0.04)',
-                                    border: '1px solid rgba(225, 25, 25, 0.15)',
-                                    padding: '4px 8px',
-                                    borderRadius: '6px',
-                                    fontSize: '0.7rem',
-                                    color: '#e11919'
-                                }}>
-                                    {key.replace(/([A-Z])/g, ' $1').toUpperCase().trim()}: {val}
-                                </span>
-                            );
-                        });
-                    }
-                    return null;
-                })()}
-            </div>
-
-            {/* footer price */}
-            <div style={{
-                borderTop: '1px solid rgba(0,0,0,0.04)',
-                paddingTop: '12px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginTop: '10px'
-            }}>
-                <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#111827' }}>
-                    ${product.price}
-                </span>
-                <button style={{
-                    padding: '8px 16px',
-                    background: 'transparent',
-                    border: '1px solid rgba(0,0,0,0.08)',
-                    borderRadius: '8px',
-                    color: '#4b5563',
-                    fontSize: '0.85rem',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s'
-                }}>
-                    Add +
-                </button>
+                {product.available_colors && product.available_colors.length > 0 ? (
+                    product.available_colors.map((color, idx) => (
+                        <div 
+                            key={idx}
+                            title={color}
+                            style={{
+                                width: '14px',
+                                height: '14px',
+                                borderRadius: '50%',
+                                background: color || '#888',
+                                border: '2px solid #fff',
+                                boxShadow: '0 0 0 1px #d2d2d7',
+                                cursor: 'help'
+                            }} 
+                        />
+                    ))
+                ) : (
+                    <div style={{
+                        width: '14px',
+                        height: '14px',
+                        borderRadius: '50%',
+                        background: '#000',
+                        border: '2px solid #fff',
+                        boxShadow: '0 0 0 1px #d2d2d7'
+                    }} />
+                )}
             </div>
         </motion.div>
     );

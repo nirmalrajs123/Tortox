@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, ChevronRight, Filter, Settings2, Hash, Layers, Save, X } from 'lucide-react';
+import { Plus, Trash2, ChevronRight, Filter, Settings2, Hash, Layers, Save, X, Edit2, Check } from 'lucide-react';
 import { categoryService } from '../../services/category';
 import { productService } from '../../services/product';
-import api from '../../services/api';
 
 const FilterSettings = () => {
     const [categories, setCategories] = useState([]);
@@ -15,7 +14,13 @@ const FilterSettings = () => {
     // 🏗️ Builder States
     const [isBuilding, setIsBuilding] = useState(false);
     const [builderLabel, setBuilderLabel] = useState('');
-    const [builderOptions, setBuilderOptions] = useState(['']); // Start with one empty field
+    const [builderOptions, setBuilderOptions] = useState(['']);
+
+    // 📝 Editing States
+    const [editingLabelId, setEditingLabelId] = useState(null);
+    const [editingLabelText, setEditingLabelText] = useState('');
+    const [editingValueId, setEditingValueId] = useState(null);
+    const [editingValueText, setEditingValueText] = useState('');
 
     useEffect(() => {
         const loadCategories = async () => {
@@ -118,6 +123,29 @@ const FilterSettings = () => {
         }
     };
 
+    // 📝 Update Handlers
+    const handleUpdateLabel = async (id) => {
+        if (!editingLabelText.trim()) return setEditingLabelId(null);
+        try {
+            await productService.updateFilterLabel(id, { filter_label: editingLabelText });
+            setEditingLabelId(null);
+            loadLabels();
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleUpdateValue = async (id) => {
+        if (!editingValueText.trim()) return setEditingValueId(null);
+        try {
+            await productService.updateFilterValue(id, { filter_value: editingValueText });
+            setEditingValueId(null);
+            loadValues();
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
     return (
         <div style={cardStyle}>
             <div style={headerSectionStyle}>
@@ -151,7 +179,7 @@ const FilterSettings = () => {
                             <div style={columnHeaderStyle}>
                                 <span style={columnTitleStyle}>Table 1: Filter Labels</span>
                                 <button
-                                    onClick={() => setIsBuilding(!isBuilding)}
+                                    onClick={() => { setIsBuilding(!isBuilding); setEditingLabelId(null); }}
                                     style={{ ...builderToggleStyle, background: isBuilding ? '#f1f5f9' : '#1e293b', color: isBuilding ? '#1e293b' : '#fff' }}
                                 >
                                     {isBuilding ? <X size={14} /> : <Plus size={14} />} {isBuilding ? 'Cancel' : 'New Filter'}
@@ -161,19 +189,14 @@ const FilterSettings = () => {
                             <AnimatePresence>
                                 {isBuilding && (
                                     <motion.div
-                                        initial={{ height: 0, opacity: 0 }}
-                                        animate={{ height: 'auto', opacity: 1 }}
-                                        exit={{ height: 0, opacity: 0 }}
+                                        initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
                                         style={builderContainerStyle}
                                     >
                                         <div style={{ marginBottom: '1rem' }}>
                                             <label style={miniLabelStyle}>1. Filter Label Name</label>
                                             <input
-                                                type="text"
-                                                placeholder="e.g., Motherboard Support"
-                                                style={fullInputStyle}
-                                                value={builderLabel}
-                                                onChange={(e) => setBuilderLabel(e.target.value)}
+                                                type="text" placeholder="e.g., Motherboard Support" style={fullInputStyle}
+                                                value={builderLabel} onChange={(e) => setBuilderLabel(e.target.value)}
                                             />
                                         </div>
 
@@ -182,11 +205,8 @@ const FilterSettings = () => {
                                             {builderOptions.map((opt, idx) => (
                                                 <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
                                                     <input
-                                                        type="text"
-                                                        placeholder={`Option ${idx + 1}`}
-                                                        style={{ ...fullInputStyle, flex: 1 }}
-                                                        value={opt}
-                                                        onChange={(e) => updateOptionField(idx, e.target.value)}
+                                                        type="text" placeholder={`Option ${idx + 1}`} style={{ ...fullInputStyle, flex: 1 }}
+                                                        value={opt} onChange={(e) => updateOptionField(idx, e.target.value)}
                                                     />
                                                     <button onClick={() => removeOptionField(idx)} style={deleteFieldBtnStyle}><Trash2 size={12} /></button>
                                                 </div>
@@ -194,9 +214,7 @@ const FilterSettings = () => {
                                             <button onClick={addOptionField} style={addFieldBtnStyle}><Plus size={14} /> Add Another Option</button>
                                         </div>
 
-                                        <button onClick={handleSaveFull} style={saveFullBtnStyle}>
-                                            <Save size={16} /> Save Full Filter
-                                        </button>
+                                        <button onClick={handleSaveFull} style={saveFullBtnStyle}><Save size={16} /> Save Full Filter</button>
                                     </motion.div>
                                 )}
                             </AnimatePresence>
@@ -214,8 +232,29 @@ const FilterSettings = () => {
                                         }}
                                         whileHover={{ scale: 1.01 }}
                                     >
-                                        <span style={{ fontWeight: 700, color: selectedLabelId === l.id ? '#1e293b' : '#64748b', fontSize: '0.85rem' }}>{l.filter_label}</span>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        {editingLabelId === l.id ? (
+                                            <div style={{ display: 'flex', gap: '5px', flex: 1 }} onClick={(e) => e.stopPropagation()}>
+                                                <input
+                                                    autoFocus
+                                                    style={{ ...fullInputStyle, padding: '5px 10px', fontSize: '0.8rem' }}
+                                                    value={editingLabelText}
+                                                    onChange={(e) => setEditingLabelText(e.target.value)}
+                                                    onKeyDown={(e) => e.key === 'Enter' && handleUpdateLabel(l.id)}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => { e.stopPropagation(); handleUpdateLabel(l.id); }}
+                                                    style={{ border: 'none', background: '#10b981', color: '#fff', borderRadius: '4px', padding: '5px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                                >
+                                                    <Check size={14} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <span style={{ fontWeight: 700, color: selectedLabelId === l.id ? '#1e293b' : '#64748b', fontSize: '0.85rem' }}>{l.filter_label}</span>
+                                        )}
+
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <button onClick={(e) => { e.stopPropagation(); setEditingLabelId(l.id); setEditingLabelText(l.filter_label); }} style={editBtnStyle}><Edit2 size={14} /></button>
                                             <button onClick={(e) => handleDeleteLabel(l.id, e)} style={deleteBtnStyle}><Trash2 size={14} /></button>
                                             <ChevronRight size={16} color={selectedLabelId === l.id ? '#e11919' : '#cbd5e1'} />
                                         </div>
@@ -240,11 +279,26 @@ const FilterSettings = () => {
                                     </div>
 
                                     <div style={listScrollStyle}>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '10px' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '15px' }}>
                                             {values.map(v => (
                                                 <div key={v.id} style={tagBoxStyle}>
-                                                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#334155' }}>{v.filter_value}</span>
-                                                    <button onClick={() => handleDeleteValue(v.id)} style={{ border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={13} /></button>
+                                                    {editingValueId === v.id ? (
+                                                        <input
+                                                            autoFocus type="text"
+                                                            style={{ ...fullInputStyle, border: 'none', background: 'transparent', padding: 0 }}
+                                                            value={editingValueText}
+                                                            onChange={(e) => setEditingValueText(e.target.value)}
+                                                            onBlur={() => handleUpdateValue(v.id)}
+                                                            onKeyDown={(e) => e.key === 'Enter' && handleUpdateValue(v.id)}
+                                                        />
+                                                    ) : (
+                                                        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#334155' }}>{v.filter_value}</span>
+                                                    )}
+
+                                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                                        <button onClick={() => { setEditingValueId(v.id); setEditingValueText(v.filter_value); }} style={{ border: 'none', background: 'none', color: '#94a3b8', cursor: 'pointer' }}><Edit2 size={13} /></button>
+                                                        <button onClick={() => handleDeleteValue(v.id)} style={{ border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={13} /></button>
+                                                    </div>
                                                 </div>
                                             ))}
                                             {values.length === 0 && <div style={emptyHintStyle}>No values found for this label.</div>}
@@ -257,7 +311,7 @@ const FilterSettings = () => {
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 };
 
@@ -276,7 +330,8 @@ const columnTitleStyle = { fontSize: '0.8rem', fontWeight: 900, color: '#1e293b'
 const counterBadgeStyle = { padding: '4px 12px', background: '#f8fafc', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 800, color: '#64748b' };
 const listScrollStyle = { maxHeight: '380px', overflowY: 'auto', paddingRight: '8px' };
 const itemRowStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderRadius: '16px', border: '1.5px solid #f1f5f9', marginBottom: '10px', cursor: 'pointer' };
-const deleteBtnStyle = { background: 'none', border: 'none', color: '#cbd5e1', cursor: 'pointer' };
+const deleteBtnStyle = { background: 'none', border: 'none', color: '#cbd5e1', cursor: 'pointer', display: 'flex', alignItems: 'center' };
+const editBtnStyle = { background: 'none', border: 'none', color: '#cbd5e1', cursor: 'pointer', display: 'flex', alignItems: 'center' };
 const tagBoxStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', border: '2px solid #f1f5f9', padding: '10px 14px', borderRadius: '14px' };
 const unselectedMsgStyle = { height: '320px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: '#94a3b8' };
 const emptyStateIconStyle = { padding: '1.5rem', background: '#f8fafc', borderRadius: '50%', marginBottom: '1rem' };
