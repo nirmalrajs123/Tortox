@@ -1,32 +1,49 @@
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;700&family=Space+Grotesk:wght@300;400;600;700&display=swap');
 
 :root {
-  /* ⚡ TORTOX KINETIC - High-Vibrancy Studio architecture setup properly correctly indexing */
-  --bg-primary: #ffffff;     /* Pure Studio White */
-  --bg-surface: #ffffff;    /* Primary Pane */
-  --bg-secondary: #f4f7f9;  /* Tactical Grey (Inputs) */
+  /* ⚡ TORTOX KINETIC - High-Vibrancy Studio architecture */
+  --bg-primary: #ffffff;
+  --bg-surface: #ffffff;
+  --bg-secondary: #f4f7f9;
   --bg-tertiary: #e2e8f0;
+  --bg-high: #f8fafc;
 
-  --accent-primary: #e11919; /* Kinetic Pure Red */
-  --accent-secondary: #c81414; /* Deep Tech Red */
-  --accent-tertiary: #000000; /* Tactical Black */
+  --accent-primary: #e11919;
+  --accent-secondary: #c81414;
+  --accent-tertiary: #000000;
 
-  --text-main: #0f172a;      /* Primary: Heavy Tactical */
-  --text-muted: #475569;     /* Secondary: Steel Slate */
-  --text-dim: #94a3b8;       /* Silver Muted */
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --text-dim: #94a3b8;
 
-  /* 📏 Kinetic Layout Specs framing correctly indexing */
   --border-ghost: #f1f5f9;
-  --border-glow: rgba(255, 77, 18, 0.1);
+  --border-glow: rgba(225, 25, 25, 0.1);
+  --border-main: #e2e8f0;
 
   --glass-bg: rgba(255, 255, 255, 0.95);
   --radius-sm: 8px;
   --radius-md: 16px;
   --radius-lg: 32px;
 
-  /* Custom Elevation */
-  --shadow-elite: 0 20px 50px -10px rgba(0,0,0,0.05);
+  --shadow-elite: 0 20px 50px -10px rgba(0, 0, 0, 0.05);
 }
+
+[data-theme='dark'] {
+  --bg-primary: #0a0a0b;
+  --bg-surface: #111112;
+  --bg-secondary: #1a1a1c;
+  --bg-tertiary: #2a2a2c;
+  --bg-high: #1c1c1e;
+
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+
+  --border-ghost: #2a2a2c;
+  --border-main: #3a3a3c;
+  --glass-bg: rgba(10, 10, 11, 0.95);
+}
+
 
 .glass-light {
   background: rgba(255, 255, 255, 0.45) !important;
@@ -184,7 +201,9 @@ h5,
 }
 
 /* ⚡ Elite High-Contrast Inputs setup correctly properly indexing */
-input, select, textarea {
+input,
+select,
+textarea {
   border: 1px solid #000 !important;
   color: #000 !important;
   font-weight: 500 !important;
@@ -196,5 +215,5 @@ label {
 }
 
 ::placeholder {
-  color: rgba(0,0,0,0.3) !important;
+  color: rgba(0, 0, 0, 0.3) !important;
 }

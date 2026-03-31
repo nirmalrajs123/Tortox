@@ -4,11 +4,16 @@ const {
     getProducts, getProductById, getCategories, addProduct, getSpecLabels, addSpecLabel, deleteSpecLabel,
     deleteProduct, updateProduct, getFilterLabels, addFilterLabel, deleteFilterLabel,
     getFilterValues, addFilterValue, deleteFilterValue, getFilterConfig, saveFullFilter,
-    updateFilterLabel, updateFilterValue
+    updateFilterLabel, updateFilterValue, toggleProductHot, toggleProductNew, toggleProductActive
 } = require('../controllers/productController');
 const upload = require('../utils/multerConfig');
 
-// Dynamic Filters Config (MOVE TO TOP TO ENSURE NO 404)
+// 🔥 PRIORITY STATUS TOGGLES (STRICT TOP-LEVEL REGISTRATION)
+router.put('/products/:id/toggle-hot', toggleProductHot);
+router.put('/products/:id/toggle-new', toggleProductNew);
+router.put('/products/:id/toggle-active', toggleProductActive);
+
+// Dynamic Filters Config
 router.get('/filter-labels/:category_id', getFilterLabels);
 router.post('/filter-labels', addFilterLabel);
 router.delete('/filter-labels/:id', deleteFilterLabel);

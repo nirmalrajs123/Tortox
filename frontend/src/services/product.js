@@ -1,6 +1,6 @@
 import api from './api';
 export const productService = {
-    getAll: (catId) => api.get(`/products${catId ? `?category=${catId}` : ''}`),
+    getAll: (params) => api.get('/products', { params }),
     getById: (id) => api.get(`/products/${id}`),
     create: (data) => api.post('/products', data, { headers: { 'Content-Type': 'multipart/form-data' } }),
     getSpecLabels: (catId) => api.get(`/spec-labels/${catId}`),
@@ -18,5 +18,7 @@ export const productService = {
     deleteSpecLabel: (id) => api.delete(`/spec-labels/${id}`),
     update: (id, data) => api.put(`/products/${id}`, data, { headers: { 'Content-Type': 'multipart/form-data' } }),
     delete: (id) => api.delete(`/products/${id}`),
-
+    toggleHot: (id) => api.put(`/products/${id}/toggle-hot`),
+    toggleNew: (id) => api.put(`/products/${id}/toggle-new`),
+    toggleActive: (id) => api.put(`/products/${id}/toggle-active`),
 };

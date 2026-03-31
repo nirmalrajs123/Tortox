@@ -55,11 +55,11 @@ const CategorySettings = () => {
     return (
         <div style={{ background: '#fff', padding: '2rem', borderRadius: '16px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
             <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '1.5rem', color: '#111827' }}>Category Management</h3>
-            
+
             <div style={{ display: 'flex', gap: '10px', marginBottom: '2rem' }}>
-                <input 
-                    type="text" 
-                    placeholder="New Category Name..." 
+                <input
+                    type="text"
+                    placeholder="New Category Name..."
                     value={newCategory}
                     onChange={(e) => setNewCategory(e.target.value)}
                     style={inputStyle}
@@ -73,16 +73,16 @@ const CategorySettings = () => {
                 {categories.map(cat => (
                     <div key={cat.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
                         {editingId === cat.id ? (
-                            <input 
-                                type="text" 
-                                value={editValue} 
-                                onChange={(e) => setEditValue(e.target.value)} 
+                            <input
+                                type="text"
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
                                 style={{ ...inputStyle, padding: '6px 10px' }}
                             />
                         ) : (
                             <span style={{ fontWeight: 600, color: '#111827' }}>{cat.category_name}</span>
                         )}
-                        
+
                         <div style={{ display: 'flex', gap: '8px' }}>
                             {editingId === cat.id ? (
                                 <button onClick={() => handleUpdate(cat.id)} style={{ ...actionBtn, color: '#10b981' }}>Save</button>

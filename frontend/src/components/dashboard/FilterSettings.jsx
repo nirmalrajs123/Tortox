@@ -21,6 +21,7 @@ const FilterSettings = () => {
     const [editingLabelText, setEditingLabelText] = useState('');
     const [editingValueId, setEditingValueId] = useState(null);
     const [editingValueText, setEditingValueText] = useState('');
+    const [newValueText, setNewValueText] = useState(''); // ➕ New state for inline value add
 
     useEffect(() => {
         const loadCategories = async () => {
@@ -276,6 +277,56 @@ const FilterSettings = () => {
                                     <div style={columnHeaderStyle}>
                                         <span style={columnTitleStyle}>Table 2: Options for <span style={{ color: '#e11919' }}>{labels.find(l => l.id === selectedLabelId)?.filter_label}</span></span>
                                         <span style={{ ...counterBadgeStyle, background: '#dcfce7', color: '#166534' }}>{values.length} Active</span>
+                                    </div>
+
+                                    {/* ➕ Quick-Add Interface */}
+                                    <div style={{ marginBottom: '20px', display: 'flex', gap: '8px' }}>
+                                        <input
+                                            type="text"
+                                            placeholder="Add New Value..."
+                                            value={newValueText}
+                                            onChange={(e) => setNewValueText(e.target.value)}
+                                            onKeyDown={async (e) => {
+                                                if (e.key === 'Enter' && newValueText.trim()) {
+                                                    try {
+                                                        const res = await productService.addFilterValue({
+                                                            category_id: selectedCategory,
+                                                            filter_label_id: selectedLabelId,
+                                                            filter_value: newValueText
+                                                        });
+                                                        if (res.data.success) {
+                                                            setNewValueText('');
+                                                            loadValues();
+                                                        }
+                                                    } catch (err) {
+                                                        alert(err.response?.data?.message || "Signal Mismatch: Failed to add specification.");
+                                                    }
+                                                }
+                                            }}
+                                            style={{ ...fullInputStyle, flex: 1, borderColor: '#f1f5f9' }}
+                                        />
+                                        <button
+                                            onClick={async () => {
+                                                if (newValueText.trim()) {
+                                                    try {
+                                                        const res = await productService.addFilterValue({
+                                                            category_id: selectedCategory,
+                                                            filter_label_id: selectedLabelId,
+                                                            filter_value: newValueText
+                                                        });
+                                                        if (res.data.success) {
+                                                            setNewValueText('');
+                                                            loadValues();
+                                                        }
+                                                    } catch (err) {
+                                                        alert(err.response?.data?.message || "Signal Mismatch: Failed to add specification.");
+                                                    }
+                                                }
+                                            }}
+                                            style={{ ...builderToggleStyle, background: '#1e293b', color: '#fff' }}
+                                        >
+                                            <Plus size={14} /> Add
+                                        </button>
                                     </div>
 
                                     <div style={listScrollStyle}>

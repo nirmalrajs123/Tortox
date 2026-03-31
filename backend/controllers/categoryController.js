@@ -1,32 +1,43 @@
 const { pool } = require('../config/db');
 
-// @desc    Get all categories
+// @desc    Get all active categories
 // @route   GET /api/categories
 const getCategories = async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM categorys ORDER BY parent_id, id ASC');
+        const result = await pool.query('SELECT * FROM categorys WHERE is_deleted = false ORDER BY parent_id, id ASC');
+        console.log(`[STITCH_CAT] FETCH_ACTIVE_MANIFEST: COUNT=${result.rows.length}`);
         res.status(200).json({ success: true, data: result.rows });
     } catch (err) {
+        console.error(`[STITCH_CAT] FETCH_ERROR:`, err);
         res.status(500).json({ success: false, message: 'DB Error: ' + err.message });
     }
 };
 
-// @desc    Add a new category
+// @desc    Add or Reactivate a category
 // @route   POST /api/categories
 const addCategory = async (req, res) => {
-    const { parent_id, category_name } = req.body;
+    let { parent_id, category_name } = req.body;
+    console.log(`[STITCH_CAT] ADD_SIGNAL: NAME="${category_name}" PARENT=${parent_id}`);
 
-    if (!category_name) {
+    if (!category_name || !category_name.trim()) {
         return res.status(400).json({ success: false, message: 'Category name is required' });
     }
+    category_name = category_name.trim();
 
     try {
-        const result = await pool.query(
-            'INSERT INTO categorys (parent_id, category_name) VALUES ($1, $2) RETURNING *',
+        // 🛡️ Atomic Manifest Adoption (Industrial Upsert)
+        const result = await pool.query(`
+            INSERT INTO categorys (parent_id, category_name) 
+            VALUES ($1, $2)
+            ON CONFLICT (LOWER(TRIM(category_name))) 
+            DO UPDATE SET is_deleted = false, parent_id = EXCLUDED.parent_id, category_name = EXCLUDED.category_name
+            RETURNING *`,
             [parseInt(parent_id) || 0, category_name]
         );
-        res.status(201).json({ success: true, message: 'Category added!', data: result.rows[0] });
+        console.log(`[STITCH_CAT] ADD_OK: ID=${result.rows[0].id} RE-ACTIVATED=${result.rows[0].is_deleted === false}`);
+        res.status(201).json({ success: true, message: 'Category Manifest Synced!', data: result.rows[0] });
     } catch (err) {
+        console.error(`[STITCH_CAT] ADD_ERROR:`, err);
         res.status(500).json({ success: false, message: 'DB Error: ' + err.message });
     }
 };
@@ -35,7 +46,9 @@ const addCategory = async (req, res) => {
 // @route   PUT /api/categories/:id
 const updateCategory = async (req, res) => {
     const { id } = req.params;
-    const { parent_id, category_name } = req.body;
+    let { parent_id, category_name } = req.body;
+    if (category_name) category_name = category_name.trim();
+    console.log(`[STITCH_CAT] UPDATE_SIGNAL: ID=${id} NAME="${category_name}"`);
 
     try {
         const result = await pool.query(
@@ -47,22 +60,27 @@ const updateCategory = async (req, res) => {
         }
         res.status(200).json({ success: true, message: 'Category updated!', data: result.rows[0] });
     } catch (err) {
+        console.error(`[STITCH_CAT] UPDATE_ERROR:`, err);
         res.status(500).json({ success: false, message: 'DB Error: ' + err.message });
     }
 };
 
-// @desc    Delete a category
+// @desc    Soft-Delete a category
 // @route   DELETE /api/categories/:id
 const deleteCategory = async (req, res) => {
     const { id } = req.params;
+    console.log(`[STITCH_CAT] DELETE_PULSE: ID=${id}`);
 
     try {
-        const result = await pool.query('DELETE FROM categorys WHERE id = $1', [id]);
+        const result = await pool.query('UPDATE categorys SET is_deleted = true WHERE id = $1', [id]);
         if (result.rowCount === 0) {
+            console.log(`[STITCH_CAT] DELETE_FAIL: ID=${id} (NOT_FOUND)`);
             return res.status(404).json({ success: false, message: 'Category not found' });
         }
-        res.status(200).json({ success: true, message: 'Category deleted!' });
+        console.log(`[STITCH_CAT] DELETE_OK: ID=${id} (SOFT_DELETED_TRUE)`);
+        res.status(200).json({ success: true, message: 'Category manifest moved to bin.' });
     } catch (err) {
+        console.error(`[STITCH_CAT] DELETE_ERROR:`, err);
         res.status(500).json({ success: false, message: 'DB Error: ' + err.message });
     }
 };

@@ -13,7 +13,11 @@ import {
     Trash2,
     Edit3,
     CheckCircle2,
-    X
+    X,
+    Flame,
+    Sparkles,
+    Eye,
+    EyeOff
 } from 'lucide-react';
 import { productService } from '../services/product'; // ➕ Use productService
 import TortoxLogo from './TortoxLogo';
@@ -22,6 +26,7 @@ import CategorySettings from './dashboard/CategorySettings';
 import SpecificationsSettings from './dashboard/SpecificationsSettings';
 
 import FilterSettings from './dashboard/FilterSettings';
+import PartnerSettings from './dashboard/PartnerSettings';
 import { Moon, Sun } from 'lucide-react';
 
 
@@ -39,7 +44,7 @@ const Dashboard = () => {
 
     const loadProducts = async () => {
         try {
-            const res = await productService.getAll();
+            const res = await productService.getAll({ show_inactive: true });
             setProducts(res.data?.data || []);
         } catch (err) {
             console.error(err);
@@ -74,6 +79,60 @@ const Dashboard = () => {
         }
     };
 
+    const handleToggleHot = async (id) => {
+        // ⚡ Optimistic local flip
+        setProducts(prev => prev.map(p => p.id === id ? { ...p, is_hot: !p.is_hot } : p));
+
+        try {
+            const res = await productService.toggleHot(id);
+            if (res.data?.success) {
+                const updated = res.data.data;
+                console.log(`[STITCH_HUB_SYNC] HOT_STATUS: ${updated.is_hot}`);
+                // 🛠️ Definitively set the final DB state
+                setProducts(prev => prev.map(p => p.id == id ? { ...p, is_hot: updated.is_hot } : p));
+            }
+        } catch (err) {
+            console.error("TOGGLE_HOT_FAILED:", err);
+            loadProducts(); // Recovery reload
+        }
+    };
+
+    const handleToggleNew = async (id) => {
+        // ⚡ Optimistic local flip
+        setProducts(prev => prev.map(p => p.id === id ? { ...p, is_new: !p.is_new } : p));
+
+        try {
+            const res = await productService.toggleNew(id);
+            if (res.data?.success) {
+                const updated = res.data.data;
+                console.log(`[STITCH_HUB_SYNC] NEW_STATUS: ${updated.is_new}`);
+                // 🛠️ Definitively set the final DB state
+                setProducts(prev => prev.map(p => p.id == id ? { ...p, is_new: updated.is_new } : p));
+            }
+        } catch (err) {
+            console.error("TOGGLE_NEW_FAILED:", err);
+            loadProducts(); // Recovery reload
+        }
+    };
+
+    const handleToggleActive = async (id) => {
+        // ⚡ Optimistic local flip
+        setProducts(prev => prev.map(p => p.id === id ? { ...p, is_active: !p.is_active } : p));
+
+        try {
+            const res = await productService.toggleActive(id);
+            if (res.data?.success) {
+                const updated = res.data.data;
+                console.log(`[STITCH_HUB_SYNC] ACTIVE_STATUS: ${updated.is_active}`);
+                // 🛠️ Definitively set the final DB state
+                setProducts(prev => prev.map(p => p.id == id ? { ...p, is_active: updated.is_active } : p));
+            }
+        } catch (err) {
+            console.error("TOGGLE_ACTIVE_FAILED:", err);
+            loadProducts(); // Recovery reload
+        }
+    };
+
     return (
         <div style={{
             minHeight: '100vh',
@@ -99,9 +158,7 @@ const Dashboard = () => {
                     zIndex: 10,
                     background: 'var(--bg-surface)'
                 }}>
-                    <div style={{ marginBottom: '3rem', cursor: 'pointer' }} onClick={() => setCurrentView('dashboard')}>
-                        <TortoxLogo size="70px" />
-                    </div>
+
 
                     <nav style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem', alignItems: 'center' }}>
                         {[
@@ -114,7 +171,7 @@ const Dashboard = () => {
                                 key={item.view}
                                 whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.9 }}
-                                onClick={() => { if (['dashboard', 'products', 'settings'].includes(item.view)) setCurrentView(item.view); }}
+                                onClick={() => { if (['dashboard', 'products', 'settings', 'users'].includes(item.view)) setCurrentView(item.view); }}
                                 style={{
                                     padding: '12px', borderRadius: '12px',
                                     background: currentView === item.view ? '#f8fafc' : 'transparent',
@@ -146,7 +203,7 @@ const Dashboard = () => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                             <TortoxLogo size="160px" />
                             <div style={{ width: '1px', height: '20px', background: 'var(--border-ghost)' }} />
-                            <span style={{ padding: '2px 10px', borderRadius: '20px', background: 'rgba(22, 101, 52, 0.2)', color: '#4ade80', fontSize: '0.65rem', fontWeight: 800 }}>ONLINE</span>
+
                         </div>
                     </header>
 
@@ -251,6 +308,54 @@ const Dashboard = () => {
                                                                 <td style={{ padding: '20px 24px' }}>
                                                                     <div style={{ display: 'flex', gap: '12px' }}>
                                                                         <motion.button
+                                                                            whileHover={{ scale: 1.05, background: prod.is_active === false ? 'rgba(148, 163, 184, 0.1)' : 'rgba(16, 185, 129, 0.1)' }}
+                                                                            whileTap={{ scale: 0.95 }}
+                                                                            onClick={() => handleToggleActive(prod.id)}
+                                                                            title={prod.is_active === false ? "Activate Product" : "Deactivate Product"}
+                                                                            style={{
+                                                                                padding: '8px', borderRadius: '10px',
+                                                                                background: prod.is_active === false ? 'rgba(148, 163, 184, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                                                                                color: prod.is_active === false ? '#94a3b8' : '#10b981',
+                                                                                border: `1px solid ${prod.is_active === false ? '#cbd5e1' : '#10b981'}`,
+                                                                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s'
+                                                                            }}
+                                                                        >
+                                                                            {prod.is_active === false ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                                        </motion.button>
+
+                                                                        <motion.button
+                                                                            whileHover={{ scale: 1.05, background: prod.is_hot ? 'rgba(225, 25, 25, 0.1)' : 'rgba(255, 107, 0, 0.1)' }}
+                                                                            whileTap={{ scale: 0.95 }}
+                                                                            onClick={() => handleToggleHot(prod.id)}
+                                                                            title={prod.is_hot ? "Deactivate Hot Status" : "Promote to Hot"}
+                                                                            style={{
+                                                                                padding: '8px', borderRadius: '10px',
+                                                                                background: prod.is_hot ? 'rgba(225, 25, 25, 0.15)' : 'transparent',
+                                                                                color: prod.is_hot ? '#e11919' : 'var(--text-dim)',
+                                                                                border: `1px solid ${prod.is_hot ? '#e11919' : 'var(--border-ghost)'}`,
+                                                                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s'
+                                                                            }}
+                                                                        >
+                                                                            <Flame size={16} fill={prod.is_hot ? '#e11919' : 'none'} />
+                                                                        </motion.button>
+
+                                                                        <motion.button
+                                                                            whileHover={{ scale: 1.05, background: prod.is_new ? 'rgba(56, 189, 248, 0.1)' : 'rgba(148, 163, 184, 0.1)' }}
+                                                                            whileTap={{ scale: 0.95 }}
+                                                                            onClick={() => handleToggleNew(prod.id)}
+                                                                            title={prod.is_new ? "Deactivate New Status" : "Mark as New"}
+                                                                            style={{
+                                                                                padding: '8px', borderRadius: '10px',
+                                                                                background: prod.is_new ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                                                                                color: prod.is_new ? '#38bdf8' : 'var(--text-dim)',
+                                                                                border: `1px solid ${prod.is_new ? '#38bdf8' : 'var(--border-ghost)'}`,
+                                                                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s'
+                                                                            }}
+                                                                        >
+                                                                            <Sparkles size={16} fill={prod.is_new ? '#38bdf8' : 'none'} />
+                                                                        </motion.button>
+
+                                                                        <motion.button
                                                                             whileHover={{ scale: 1.05, background: 'var(--bg-primary)', color: 'var(--accent-primary)' }}
                                                                             whileTap={{ scale: 0.95 }}
                                                                             onClick={() => handleEdit(prod.id)}
@@ -293,6 +398,10 @@ const Dashboard = () => {
                                             {settingsTab === 'filters' && <FilterSettings />}
                                         </div>
                                     </div>
+                                )}
+
+                                {currentView === 'users' && (
+                                    <PartnerSettings />
                                 )}
                             </div>
                         </main>

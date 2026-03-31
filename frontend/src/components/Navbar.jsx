@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { categoryService } from '../services/category';
 import TortoxLogo from './TortoxLogo';
 
-const Navbar = ({ toggleTheme, theme }) => {
+const Navbar = ({ toggleTheme, theme = 'light' }) => {
     const navigate = useNavigate();
     const [hoveredItem, setHoveredItem] = useState(null);
     const [categories, setCategories] = useState([]);
@@ -32,7 +32,7 @@ const Navbar = ({ toggleTheme, theme }) => {
                     { name: 'POWER SUPPLY', id: 'all' },
                     { name: 'LIQUID COOLER', id: 'all' },
                     { name: 'AIR COOLER', id: 'all' }
-                  ]
+                ]
         },
         { title: 'About', items: [{ name: 'Company Profile' }, { name: 'News & Events' }, { name: 'Quality & Design' }] },
         { title: 'Community', items: [{ name: 'User Forums' }, { name: 'Wallpaper' }, { name: 'Newsletter' }] },
@@ -46,18 +46,20 @@ const Navbar = ({ toggleTheme, theme }) => {
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.6 }}
             style={{
-                position: 'fixed', top: 0, left: 0, width: '100%', zIndex: 100,
+                position: 'fixed', top: 0, left: 0, width: '100%', zIndex: 1000,
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '1.2rem 4rem', backgroundColor: 'var(--bg-secondary)',
-                borderBottom: '1px solid var(--border)', boxSizing: 'border-box',
-                transition: 'all 0.3s ease'
+                padding: '0.8rem 6rem', backgroundColor: theme === 'light' ? '#ffffff' : '#0a0a0b',
+                borderBottom: '1px solid var(--border-ghost)', boxSizing: 'border-box',
+                transition: 'all 0.3s ease',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
+                background: theme === 'light' ? '#ffffff' : '#0a0a0b'
             }}
         >
             <div
                 style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
                 onClick={() => navigate('/')}
             >
-                <TortoxLogo size="35px" />
+                <TortoxLogo size="130px" />
             </div>
 
             <ul style={{
@@ -71,16 +73,16 @@ const Navbar = ({ toggleTheme, theme }) => {
                         style={{ position: 'relative', padding: '10px 0' }}
                     >
                         <motion.div
-                            whileHover={{ y: -1, color: 'var(--accent-primary)' }}
+                            whileHover={{ y: -1 }}
                             style={{
                                 display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer',
                                 color: hoveredItem === item.title ? 'var(--accent-primary)' : 'var(--text-main)',
-                                fontSize: '0.9rem', fontWeight: 500, letterSpacing: '0.2px', transition: 'color 0.2s'
+                                fontSize: '0.9rem', fontWeight: 600, letterSpacing: '0.2px', transition: 'color 0.2s'
                             }}
                         >
                             {item.title}
                             <motion.div
-                                animate={{ rotate: hoveredItem === item.title ? 180 : 0 }}
+                                animate={{ rotate: hoveredItem === item.title ? 180 : 0, color: hoveredItem === item.title ? 'var(--accent-primary)' : 'currentColor' }}
                                 transition={{ duration: 0.2 }}
                             >
                                 <ChevronDown size={14} style={{ opacity: 0.7 }} />
@@ -90,15 +92,18 @@ const Navbar = ({ toggleTheme, theme }) => {
                         <AnimatePresence>
                             {hoveredItem === item.title && (
                                 <motion.div
-                                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                    initial={{ opacity: 0, y: 15, scale: 0.95 }}
                                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
                                     transition={{ duration: 0.2, ease: 'easeOut' }}
                                     style={{
                                         position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
-                                        background: 'var(--bg-secondary)', boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
-                                        borderRadius: '12px', padding: '12px 10px',
-                                        minWidth: '180px', border: '1px solid var(--border)', zIndex: 110, marginTop: '4px'
+                                        background: 'var(--bg-surface)',
+                                        boxShadow: 'var(--shadow-elite)',
+                                        borderRadius: '12px', padding: '10px',
+                                        minWidth: '220px', border: '1px solid var(--border-ghost)',
+                                        zIndex: 1010, marginTop: '5px',
+                                        overflow: 'hidden'
                                     }}
                                 >
                                     {item.items.map((sub, idx) => (
@@ -112,12 +117,12 @@ const Navbar = ({ toggleTheme, theme }) => {
                                                 }
                                                 setHoveredItem(null);
                                             }}
-                                            whileHover={{ background: 'var(--bg-primary)', color: 'var(--accent-primary)', x: 4 }}
+                                            whileHover={{ background: 'var(--bg-secondary)', color: 'var(--accent-primary)', x: 4 }}
                                             transition={{ duration: 0.15 }}
                                             style={{
-                                                padding: '8px 14px', borderRadius: '8px', fontSize: '0.85rem',
-                                                color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 500,
-                                                whiteSpace: 'nowrap', textTransform: 'uppercase'
+                                                padding: '10px 16px', borderRadius: '8px', fontSize: '0.85rem',
+                                                color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 600,
+                                                whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.5px'
                                             }}
                                         >
                                             {sub.name}
@@ -156,12 +161,13 @@ const Navbar = ({ toggleTheme, theme }) => {
 
                 <motion.button
                     onClick={() => navigate('/login')}
-                    whileHover={{ scale: 1.05, background: 'var(--accent-primary)' }}
+                    whileHover={{ scale: 1.05, opacity: 0.9 }}
                     whileTap={{ scale: 0.98 }}
                     style={{
-                        padding: '7px 18px', background: 'var(--text-main)', color: 'var(--bg-secondary)',
-                        border: 'none', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 700,
-                        cursor: 'pointer', marginLeft: '0.4rem', transition: 'all 0.2s'
+                        padding: '6px 20px', background: '#0a0a0b', color: '#fff',
+                        border: 'none', borderRadius: '24px', fontSize: '0.8rem', fontWeight: 800,
+                        cursor: 'pointer', marginLeft: '1rem', transition: 'all 0.2s',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
                     }}
                 >
                     Login

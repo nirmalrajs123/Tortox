@@ -6,12 +6,13 @@ import { categoryService } from '../services/category';
 import { ChevronRight, Trash2, Search, Filter as FilterIcon, SlidersHorizontal } from 'lucide-react';
 import Navbar from './Navbar';
 import Footer from './Footer';
+import ProductCard from './ProductCard';
 
 const ProductListPage = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const categoryFromUrl = searchParams.get('category');
-    
+
     const [products, setProducts] = useState([]);
     const [categories, setCategories] = useState([]);
     const [filterConfig, setFilterConfig] = useState([]); // Array of { id, filter_label, values: [{id, filter_value}] }
@@ -25,7 +26,7 @@ const ProductListPage = () => {
                 setLoading(true);
                 // 1. Load Categories & Products (filtered by cat if present)
                 const [prodRes, catRes] = await Promise.all([
-                    productService.getAll(categoryFromUrl),
+                    productService.getAll({ category: categoryFromUrl }),
                     categoryService.getAll()
                 ]);
                 setProducts(prodRes.data?.data || []);
@@ -38,7 +39,7 @@ const ProductListPage = () => {
                 } else {
                     setFilterConfig([]);
                 }
-                
+
                 // Reset active filters when category changes
                 setSelectedFilters({});
             } catch (err) {
@@ -70,7 +71,7 @@ const ProductListPage = () => {
             if (activeValues.length === 0) return true;
             // A product matches if any of its filters match any of the active values for this labelId
             const productFilters = p.active_filters || [];
-            return activeValues.some(val => 
+            return activeValues.some(val =>
                 productFilters.some(pf => String(pf.filter_type_id) === String(labelId) && pf.filter_value === val)
             );
         });
@@ -78,10 +79,39 @@ const ProductListPage = () => {
 
     return (
         <div style={{ backgroundColor: '#ffffff', minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'Inter, sans-serif' }}>
-            <Navbar />
+            <Navbar theme="light" />
+
+            {/* 🌌 Dynamic Category Hero Banner */}
+            <div style={{
+                position: 'relative',
+                height: '380px',
+                width: '100%',
+                overflow: 'hidden',
+                background: `#000 url('/pc-case-banner.png') no-repeat center center/cover`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: '80px' // Offset for fixed navbar
+            }}>
+                <div style={{
+                    position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+                    background: 'rgba(0,0,0,0.5)'
+                }} />
+                <h1 style={{
+                    position: 'relative',
+                    color: '#fff',
+                    fontSize: '3.5rem',
+                    fontWeight: 900,
+                    textTransform: 'uppercase',
+                    letterSpacing: '2px',
+                    margin: 0
+                }}>
+                    {currentCategoryName}
+                </h1>
+            </div>
 
             {/* Tactical Breadcrumb */}
-            <div style={{ marginTop: '80px', padding: '30px 60px', borderBottom: '1px solid #f0f0f0' }}>
+            <div style={{ padding: '20px 60px', borderBottom: '1px solid #f0f0f0', background: '#fff' }}>
                 <div style={{ maxWidth: '1440px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '8px', color: '#86868b', fontSize: '0.85rem' }}>
                     <span onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>Home</span> 
                     <ChevronRight size={14} />
@@ -95,16 +125,16 @@ const ProductListPage = () => {
                 </div>
             </div>
 
-            <main style={{ maxWidth: '1440px', margin: '0 auto', width: '100%', padding: '60px', display: 'flex', gap: '60px', boxSizing: 'border-box' }}>
-                
-                {/* 🛡️ Dynamic Sidebar Filters */}
-                <aside style={{ width: '280px', flexShrink: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', paddingBottom: '10px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <SlidersHorizontal size={20} color="#e11919" />
-                            <h2 style={{ fontSize: '1.2rem', fontWeight: 900, margin: 0, color: '#1d1d1f', letterSpacing: '-0.5px' }}>FILTER</h2>
-                        </div>
-                        <Trash2 size={16} style={{ color: '#ccc', cursor: 'pointer', transition: '0.2s' }} onMouseEnter={e => e.target.style.color='#e11919'} onMouseLeave={e => e.target.style.color='#ccc'} onClick={resetFilters} />
+            <main style={{ maxWidth: '1440px', margin: '0 auto', width: '100%', padding: '40px 60px', display: 'flex', gap: '50px', boxSizing: 'border-box' }}>
+
+                {/* 📂 Sidebar Filters */}
+                <aside style={{ width: '280px', flexShrink: 0, paddingRight: '40px', position: 'sticky', top: '100px', height: 'fit-content' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '30px' }}>
+                        <SlidersHorizontal size={24} color="#e11919" />
+                        <h2 style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.5px' }}>Filter</h2>
+                        <button onClick={resetFilters} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer' }}>
+                            <Trash2 size={16} color="#999" />
+                        </button>
                     </div>
 
                     {filterConfig.map(group => (
@@ -113,11 +143,11 @@ const ProductListPage = () => {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 {group.values.map(val => (
                                     <label key={val.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.95rem', color: '#424245', cursor: 'pointer', fontWeight: 500 }}>
-                                        <input 
-                                            type="checkbox" 
-                                            checked={(selectedFilters[group.id] || []).includes(val.filter_value)} 
+                                        <input
+                                            type="checkbox"
+                                            checked={(selectedFilters[group.id] || []).includes(val.filter_value)}
                                             onChange={() => toggleFilter(group.id, val.filter_value)}
-                                            style={checkboxStyle} 
+                                            style={checkboxStyle}
                                         />
                                         {val.filter_value}
                                     </label>
@@ -125,7 +155,7 @@ const ProductListPage = () => {
                             </div>
                         </div>
                     ))}
-                    
+
                     {filterConfig.length === 0 && !loading && (
                         <div style={{ padding: '20px', background: '#f9fafb', borderRadius: '12px', textAlign: 'center', fontSize: '0.85rem', color: '#999' }}>
                             Select a specific category to load tactical filtering dimensions.
@@ -141,65 +171,35 @@ const ProductListPage = () => {
                         </div>
                     ) : (
                         <>
+                            {/* 🔥 NEW ARRIVALS SHOWCASE */}
+                            {products.filter(p => p.is_new).length > 0 && (
+                                <div style={{ marginBottom: '60px', padding: '40px', background: '#fcfcfc', borderRadius: '24px', border: '1px solid #f0f0f0' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '30px' }}>
+                                        <div style={{ padding: '8px', background: '#000', borderRadius: '8px' }}>
+                                            <Search size={20} color="#fff" />
+                                        </div>
+                                        <h2 style={{ fontSize: '1.8rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px' }}>New Arrivals</h2>
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '30px' }}>
+                                        {products.filter(p => p.is_new).map((p) => (
+                                            <ProductCard key={`new-${p.id}`} product={p} />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <div style={{ marginBottom: '30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <p style={{ color: '#86868b', fontSize: '0.9rem', fontWeight: 500 }}>
                                     Showing <span style={{ color: '#000', fontWeight: 700 }}>{filteredProducts.length}</span> individual tactical units
                                 </p>
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '30px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '30px' }}>
                                 {filteredProducts.map((p) => (
-                                    <motion.div
-                                        key={p.id}
-                                        initial={{ opacity: 0, scale: 0.98 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        onClick={() => navigate(`/product/${p.id}`)}
-                                        onMouseEnter={() => setHoveredId(p.id)}
-                                        onMouseLeave={() => setHoveredId(null)}
-                                        whileHover={{ y: -5 }}
-                                        style={{
-                                            background: '#fff',
-                                            borderRadius: '20px',
-                                            padding: '30px',
-                                            position: 'relative',
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            border: '1px solid #f0f0f0',
-                                            transition: 'border 0.3s ease'
-                                        }}
-                                    >
-                                        <span style={{
-                                            position: 'absolute', top: '20px', left: '20px',
-                                            background: '#000', color: '#fff', padding: '4px 14px',
-                                            borderRadius: '6px', fontSize: '0.7rem', fontWeight: 800, zIndex: 2
-                                        }}>NEW RELEASE</span>
-
-                                        <div style={{ width: '100%', aspectRatio: '1/1', marginBottom: '25px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', position: 'relative', overflow: 'hidden' }}>
-                                            <motion.img 
-                                                src={(hoveredId === p.id && p.hover_image) ? p.hover_image : (p.image || 'https://via.placeholder.com/400')} 
-                                                alt={p.product_name} 
-                                                style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain' }}
-                                                animate={{ scale: hoveredId === p.id ? 1.05 : 1 }}
-                                            />
-                                        </div>
-
-                                        <h3 style={{ fontSize: '1.4rem', fontWeight: 900, color: '#000', margin: '0 0 10px 0', letterSpacing: '-0.5px' }}>
-                                            {p.modal || p.product_name}
-                                        </h3>
-                                        
-                                        <div style={{ fontSize: '0.9rem', color: '#86868b', fontWeight: 600, marginBottom: '25px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                            {p.product_name || 'Standard Tactical Gear'}
-                                        </div>
-
-                                        <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                                            <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: '#000', border: '2px solid #fff', boxShadow: '0 0 0 1px #eee' }} />
-                                            <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: '#fff', border: '2px solid #fff', boxShadow: '0 0 0 1px #eee' }} />
-                                        </div>
-                                    </motion.div>
+                                    <ProductCard key={p.id} product={p} />
                                 ))}
                             </div>
-                            
+
                             {filteredProducts.length === 0 && (
                                 <div style={{ padding: '100px', textAlign: 'center', background: '#f9fafb', borderRadius: '24px' }}>
                                     <Search size={40} color="#ccc" style={{ marginBottom: '20px' }} />

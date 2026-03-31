@@ -2,30 +2,61 @@ const { pool } = require('../config/db');
 
 
 const getProducts = async (req, res) => {
-    const { category } = req.query;
+    const { category, show_inactive } = req.query;
     try {
         let query = `
-            SELECT p.*, 
-                   (SELECT image_path FROM product_images WHERE product_id = p.id AND (image_path IS NOT NULL AND image_path != '' AND image_path != '/') ORDER BY (CASE WHEN image_type = 'main' THEN 0 ELSE 1 END), id ASC LIMIT 1) as main_image,
-                   (SELECT hover_path FROM product_images WHERE product_id = p.id AND (hover_path IS NOT NULL AND hover_path != '' AND hover_path != '/') AND image_type = 'hover' LIMIT 1) as hover_image,
-                   (SELECT COALESCE(json_agg(json_build_object('filter_type_id', filter_type_id, 'filter_value', filter_value)), '[]') FROM product_filters WHERE product_id = p.id AND is_deleted = false) as active_filters,
-                   (SELECT COALESCE(json_agg(DISTINCT color), '[]') FROM variants WHERE product_id = p.id) as available_colors
-            FROM product_details p
-        `;
+                SELECT p.*, 
+                       (SELECT image_path FROM product_images WHERE product_id = p.id AND (image_path IS NOT NULL AND image_path != '' AND image_path != '/') ORDER BY (CASE WHEN image_type = 'main' THEN 0 ELSE 1 END), id ASC LIMIT 1) as main_image,
+                       (SELECT hover_path FROM product_images WHERE product_id = p.id AND (hover_path IS NOT NULL AND hover_path != '' AND hover_path != '/') AND image_type = 'hover' LIMIT 1) as hover_image,
+                       (SELECT COALESCE(json_agg(json_build_object('filter_type_id', filter_type_id, 'filter_value', filter_value)), '[]') FROM product_filters WHERE product_id = p.id AND is_deleted = false) as active_filters,
+                       (SELECT COALESCE(json_agg(json_build_object(
+                           'color', LOWER(v.color),
+                           'image', (SELECT image_url FROM variant_images WHERE variant_id = v.id ORDER BY id ASC LIMIT 1)
+                       )), '[]') FROM (SELECT DISTINCT ON (LOWER(color)) color, id FROM variants WHERE product_id = p.id AND color IS NOT NULL AND color != '' ORDER BY LOWER(color), id ASC) v) as variant_data
+                FROM product_details p
+            `;
         let params = [];
+        let conditions = [];
+
+        // 🛡️ PERMANENT MANIFEST GUARD: Filter out soft-deleted records
+        conditions.push(`p.is_deleted = false`);
+
         if (category && category !== 'All') {
-            query += ` WHERE p.category_id = $1`;
             params.push(category);
+            conditions.push(`p.category_id = $${params.length}`);
+        }
+
+        // 🛡️ DEFAULT: Only show active products to public. Dashboard can bypass with ?show_inactive=true
+        if (show_inactive !== 'true') {
+            conditions.push(`p.is_active = true`);
+        }
+
+        if (conditions.length > 0) {
+            query += ` WHERE ` + conditions.join(' AND ');
         }
         query += ` ORDER BY p.id ASC`;
 
+        console.log(`[STITCH_HUB] GET_PRODUCTS_QUERY:`, { query, params });
         const result = await pool.query(query, params);
+        console.log(`[STITCH_HUB] QUERY_RESULT: COUNT=${result.rows.length}`);
         const serverHost = `${req.protocol}://${req.get('host')}`;
-        const data = result.rows.map(prod => ({
-            ...prod,
-            image: prod.main_image ? (prod.main_image.startsWith('http') ? prod.main_image : `${serverHost}${prod.main_image.startsWith('/') ? '' : '/'}${prod.main_image.trim()}`) : null,
-            hover_image: prod.hover_image ? (prod.hover_image.startsWith('http') ? prod.hover_image : `${serverHost}${prod.hover_image.startsWith('/') ? '' : '/'}${prod.hover_image.trim()}`) : null
-        }));
+        const data = result.rows.map(prod => {
+            const rawMain = prod.main_image || prod.image; // Global fallback to legacy column
+            const normalizedMain = rawMain ? (rawMain.startsWith('http') ? rawMain : `${serverHost}${rawMain.startsWith('/') ? '' : '/'}${rawMain.trim()}`) : null;
+
+            const vData = (prod.variant_data || []).map(v => ({
+                color: v.color,
+                image: v.image ? (v.image.startsWith('http') ? v.image : `${serverHost}${v.image.startsWith('/') ? '' : '/'}${v.image.trim()}`) : null
+            }));
+
+            return {
+                ...prod,
+                image: normalizedMain,
+                main_image: normalizedMain,
+                hover_image: prod.hover_image ? (prod.hover_image.startsWith('http') ? prod.hover_image : `${serverHost}${prod.hover_image.startsWith('/') ? '' : '/'}${prod.hover_image.trim()}`) : null,
+                variant_data: vData
+            };
+        });
         res.status(200).json({
             success: true,
             count: data.length,
@@ -41,7 +72,7 @@ const getProducts = async (req, res) => {
 
 const getCategories = async (req, res) => {
     try {
-        const result = await pool.query(`SELECT id, category_name FROM categorys ORDER BY id ASC`);
+        const result = await pool.query(`SELECT id, category_name FROM categorys WHERE is_deleted = false ORDER BY id ASC`);
         res.status(200).json({ success: true, data: result.rows });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -52,13 +83,25 @@ const getCategories = async (req, res) => {
 const getProductById = async (req, res) => {
     const { id } = req.params;
     try {
-        // Support both numeric ID and slug (modal name, case-insensitive)
-        const isNumeric = /^\d+$/.test(id);
-        const query = isNumeric
-            ? 'SELECT p.*, c.category_name FROM product_details p LEFT JOIN categorys c ON p.category_id = c.id WHERE p.id = $1'
-            : "SELECT p.*, c.category_name FROM product_details p LEFT JOIN categorys c ON p.category_id = c.id WHERE REPLACE(LOWER(p.modal), ' ', '-') = LOWER($1)";
-        const prodRes = await pool.query(query, [id]);
+        const cleanId = id.trim().toLowerCase();
+        const isNumeric = /^\d+$/.test(cleanId);
+
+        const query = `
+            SELECT p.*, c.category_name 
+            FROM product_details p 
+            LEFT JOIN categorys c ON p.category_id = c.id 
+            WHERE (p.id::text = $1 
+               OR p.modal ILIKE REPLACE($1, '-', ' ')
+               OR p.product_name ILIKE REPLACE($1, '-', ' ')
+               OR LOWER(REPLACE(p.modal, ' ', '-')) = $1)
+               AND p.is_deleted = false
+               LIMIT 1
+        `;
+        const prodRes = await pool.query(query, [cleanId]);
+        console.log('GET_PRODUCT_RESULT:', { id, cleanId, count: prodRes.rows.length });
         if (prodRes.rows.length === 0) {
+            const nears = await pool.query('SELECT modal FROM product_details LIMIT 5');
+            console.log('404_DEBUG:', { search: cleanId, table_modals: nears.rows.map(r => r.modal) });
             return res.status(404).json({ success: false, message: 'Product not found' });
         }
 
@@ -69,38 +112,47 @@ const getProductById = async (req, res) => {
         if (prod.image) prod.image = prod.image.startsWith('http') ? prod.image : `${serverHost}${prod.image.startsWith('/') ? '' : '/'}${prod.image.trim()}`;
         if (prod.hover_image) prod.hover_image = prod.hover_image.startsWith('http') ? prod.hover_image : `${serverHost}${prod.hover_image.startsWith('/') ? '' : '/'}${prod.hover_image.trim()}`;
 
-        // 📸 Fetch images gallery
-        const imagesRes = await pool.query('SELECT image_path FROM product_images WHERE product_id = $1 AND (image_type IS NULL OR image_type = \'gallery\')', [id]);
+        // 📸 Fetch ALL images from product_images (including hover paths)
+        const imagesRes = await pool.query('SELECT image_path, hover_path, image_type FROM product_images WHERE product_id = $1', [prod.id]);
         prod.product_images = imagesRes.rows.map(img => {
-            const p = img.image_path;
-            const fullP = p.startsWith('http') ? p : `${serverHost}${p.startsWith('/') ? '' : '/'}${p.trim()}`;
-            return { ...img, image_path: fullP };
+            const normalize = (p) => p && !p.startsWith('http') ? `${serverHost}${p.startsWith('/') ? '' : '/'}${p.trim()}` : p;
+            return {
+                ...img,
+                image_path: normalize(img.image_path),
+                hover_path: normalize(img.hover_path)
+            };
         });
 
         // 📸 Re-fetch main and hover if missing in main row (redundancy/safety)
         if (!prod.image) {
-            const m = await pool.query('SELECT image_path FROM product_images WHERE product_id = $1 AND image_type = \'main\' LIMIT 1', [id]);
-            if (m.rows[0]?.image_path) prod.image = m.rows[0].image_path.startsWith('http') ? m.rows[0].image_path : `${serverHost}${m.rows[0].image_path.startsWith('/') ? '' : '/'}${m.rows[0].image_path.trim()}`;
+            const m = prod.product_images.find(img => img.image_type === 'main' || (img.image_path && img.image_type !== 'hover')) || {};
+            prod.image = m.image_path || null;
         }
         if (!prod.hover_image) {
-            const h = await pool.query('SELECT hover_path FROM product_images WHERE product_id = $1 AND image_type = \'hover\' LIMIT 1', [id]);
-            if (h.rows[0]?.hover_path) prod.hover_image = h.rows[0].hover_path.startsWith('http') ? h.rows[0].hover_path : `${serverHost}${h.rows[0].hover_path.startsWith('/') ? '' : '/'}${h.rows[0].hover_path.trim()}`;
+            const h = prod.product_images.find(img => img.image_type === 'hover' || img.hover_path) || {};
+            prod.hover_image = h.hover_path || h.image_path || null;
         }
 
-        // 📐 Global Specifications (variant_id = 0)
-        const specRes = await pool.query('SELECT * FROM specifications WHERE product_id = $1 AND variant_id = 0 AND specification_deleted = false ORDER BY order_id ASC', [id]);
+        // 📐 Global Specifications (variant_id = 0) with Fallback to first variant if empty
+        let specRes = await pool.query('SELECT specification_name as label, specification_value as value FROM specifications WHERE product_id = $1 AND (variant_id = 0 OR variant_id IS NULL) AND specification_deleted = false ORDER BY order_id ASC', [prod.id]);
+        if (specRes.rows.length === 0) {
+            specRes = await pool.query('SELECT specification_name as label, specification_value as value FROM specifications WHERE product_id = $1 AND specification_deleted = false ORDER BY variant_id ASC, order_id ASC LIMIT 15', [prod.id]);
+        }
         prod.specifications = specRes.rows;
 
-        // ✏️ Global Features (variant_id = 0)
-        const featuresRes = await pool.query('SELECT * FROM features WHERE product_id = $1 AND variant_id = 0 AND is_deleted = false', [id]);
+        // ✏️ Global Features (variant_id = 0) with Fallback
+        let featuresRes = await pool.query('SELECT features FROM features WHERE product_id = $1 AND (variant_id = 0 OR variant_id IS NULL) AND is_deleted = false', [prod.id]);
+        if (featuresRes.rows.length === 0) {
+            featuresRes = await pool.query('SELECT features FROM features WHERE product_id = $1 AND (variant_id IS NOT NULL AND variant_id != 0) AND is_deleted = false LIMIT 10', [prod.id]);
+        }
         prod.featuresList = featuresRes.rows.map(f => f.features);
 
         // 3. Global Filters (variant_id = 0)
-        const filterRes = await pool.query('SELECT * FROM product_filters WHERE product_id = $1 AND variant_id = 0 AND is_deleted = false', [id]);
+        const filterRes = await pool.query('SELECT * FROM product_filters WHERE product_id = $1 AND variant_id = 0 AND is_deleted = false', [prod.id]);
         prod.filters = filterRes.rows;
 
         // 4. Variants with their Specific Configurations
-        const varRes = await pool.query('SELECT * FROM variants WHERE product_id = $1 ORDER BY id ASC', [id]);
+        const varRes = await pool.query('SELECT * FROM variants WHERE product_id = $1 ORDER BY id ASC', [prod.id]);
         const variants = varRes.rows;
 
         for (let i = 0; i < variants.length; i++) {
@@ -135,9 +187,9 @@ const getProductById = async (req, res) => {
             v.modelName = v.model_name || '';
             v.productName = v.product_name || '';
         }
-        prod.combinations = variants;
+        prod.variants = variants;
 
-        const prodImgRes = await pool.query('SELECT * FROM product_images WHERE product_id = $1 AND image_type = \'gallery\' AND image_path IS NOT NULL AND image_path != \'\' AND image_path != \'/\' ORDER BY id ASC', [id]);
+        const prodImgRes = await pool.query('SELECT * FROM product_images WHERE product_id = $1 AND image_type = \'gallery\' AND image_path IS NOT NULL AND image_path != \'\' AND image_path != \'/\' ORDER BY id ASC', [prod.id]);
         const normalize = (p) => {
             if (!p) return null;
             const trimmed = p.trim();
@@ -155,6 +207,7 @@ const getProductById = async (req, res) => {
 
         res.status(200).json({ success: true, data: prod });
     } catch (e) {
+        console.error('GET_PRODUCT_DETAIL_ERROR:', e);
         res.status(500).json({ success: false, message: e.message });
     }
 };
@@ -317,8 +370,8 @@ const addProduct = async (req, res) => {
                     for (const f of comb.filters) {
                         if (f.value) {
                             await client.query(
-                                `INSERT INTO product_filters (product_id, variant_id, category_id, filter_type_id, filter_value) VALUES ($1, $2, $3, $4, $5)`,
-                                [product_id, variant_id, category_id, f.id, f.value]
+                                `INSERT INTO product_filters (product_id, variant_id, category_id, filter_type_id, filter_value, filter_value_id) VALUES ($1, $2, $3, $4, $5, $6)`,
+                                [product_id, variant_id, category_id, f.id, f.value, f.filter_value_id || null]
                             );
                         }
                     }
@@ -343,8 +396,8 @@ const addProduct = async (req, res) => {
             for (const f of filters) {
                 if (f.filter_type_id && f.filter_value) {
                     await client.query(
-                        `INSERT INTO product_filters (product_id, variant_id, category_id, filter_type_id, filter_value) VALUES ($1, $2, $3, $4, $5)`,
-                        [product_id, 0, category_id, f.filter_type_id, f.filter_value]
+                        `INSERT INTO product_filters (product_id, variant_id, category_id, filter_type_id, filter_value, filter_value_id) VALUES ($1, $2, $3, $4, $5, $6)`,
+                        [product_id, 0, category_id, f.filter_type_id, f.filter_value, f.filter_value_id || null]
                     );
                 }
             }
@@ -479,9 +532,9 @@ const updateProduct = async (req, res) => {
                         [id, f.id]
                     );
                     if (check.rows.length > 0) {
-                        await client.query(`UPDATE product_filters SET filter_value = $1, is_deleted = false WHERE id = $2`, [f.value, check.rows[0].id]);
+                        await client.query(`UPDATE product_filters SET filter_value = $1, filter_value_id = $2, is_deleted = false WHERE id = $3`, [f.value, f.filter_value_id || null, check.rows[0].id]);
                     } else {
-                        await client.query(`INSERT INTO product_filters (product_id, variant_id, category_id, filter_type_id, filter_value) VALUES ($1, 0, $2, $3, $4)`, [id, category_id, f.id, f.value]);
+                        await client.query(`INSERT INTO product_filters (product_id, variant_id, category_id, filter_type_id, filter_value, filter_value_id) VALUES ($1, 0, $2, $3, $4, $5)`, [id, category_id, f.id, f.value, f.filter_value_id || null]);
                     }
                 }
             }
@@ -545,8 +598,8 @@ const updateProduct = async (req, res) => {
                     for (const vFilter of comb.filters) {
                         if (vFilter.value) {
                             const flCheck = await client.query(`SELECT id FROM product_filters WHERE variant_id = $1 AND filter_type_id = $2`, [variant_id, vFilter.id]);
-                            if (flCheck.rows.length > 0) await client.query(`UPDATE product_filters SET filter_value = $1, is_deleted = false WHERE id = $2`, [vFilter.value, flCheck.rows[0].id]);
-                            else await client.query(`INSERT INTO product_filters (product_id, variant_id, category_id, filter_type_id, filter_value) VALUES ($1, $2, $3, $4, $5)`, [id, variant_id, category_id, vFilter.id, vFilter.value]);
+                            if (flCheck.rows.length > 0) await client.query(`UPDATE product_filters SET filter_value = $1, filter_value_id = $2, is_deleted = false WHERE id = $3`, [vFilter.value, vFilter.filter_value_id || null, flCheck.rows[0].id]);
+                            else await client.query(`INSERT INTO product_filters (product_id, variant_id, category_id, filter_type_id, filter_value, filter_value_id) VALUES ($1, $2, $3, $4, $5, $6)`, [id, variant_id, category_id, vFilter.id, vFilter.value, vFilter.filter_value_id || null]);
                         }
                     }
                 }
@@ -604,13 +657,8 @@ const updateProduct = async (req, res) => {
 const deleteProduct = async (req, res) => {
     const { id } = req.params;
     try {
-        await pool.query(`DELETE FROM features WHERE product_id = $1`, [id]);
-        await pool.query(`DELETE FROM specifications WHERE product_id = $1`, [id]);
-        await pool.query(`DELETE FROM variant_images WHERE product_id = $1`, [id]);
-        await pool.query(`DELETE FROM variants WHERE product_id = $1`, [id]);
-        await pool.query(`DELETE FROM product_images WHERE product_id = $1`, [id]);
-        await pool.query(`DELETE FROM product_details WHERE id = $1`, [id]);
-        res.status(200).json({ success: true, message: 'Product deleted successfully' });
+        await pool.query(`update product_details set is_deleted = true where id = $1`, [id]);
+        res.status(200).json({ success: true, message: 'Product manifest moved to bin.' });
     } catch (error) {
         res.status(500).json({ success: false, message: "Database Error: " + error.message });
     }
@@ -644,24 +692,13 @@ const addFilterLabel = async (req, res) => {
     if (filter_label) filter_label = filter_label.trim();
 
     try {
-        // 1. Check if it exists (case-insensitive)
-        const checkRes = await pool.query(
-            `SELECT * FROM filter_labels WHERE category_id = $1 AND filter_label ILIKE $2`,
-            [category_id, filter_label]
-        );
-
-        if (checkRes.rows.length > 0) {
-            // 2. Reactivate if deleted
-            const existing = checkRes.rows[0];
-            const updateRes = await pool.query(
-                `UPDATE filter_labels SET is_deleted = false WHERE id = $1 RETURNING *`,
-                [existing.id]
-            );
-            return res.status(200).json({ success: true, message: 'Filter label reactivated', data: updateRes.rows[0] });
-        }
-
-        const result = await pool.query(
-            `INSERT INTO filter_labels (category_id, filter_label) VALUES ($1, $2) RETURNING *`,
+        // 🛡️ Atomic Manifest Adoption (Industrial Upsert)
+        const result = await pool.query(`
+            INSERT INTO filter_labels (category_id, filter_label) 
+            VALUES ($1, $2)
+            ON CONFLICT (category_id, LOWER(filter_label)) 
+            DO UPDATE SET is_deleted = false, filter_label = EXCLUDED.filter_label
+            RETURNING *`,
             [category_id, filter_label]
         );
         res.status(201).json({ success: true, data: result.rows[0] });
@@ -675,9 +712,8 @@ const deleteFilterLabel = async (req, res) => {
     const { id } = req.params;
     try {
         await pool.query('UPDATE filter_labels SET is_deleted = true WHERE id = $1', [id]);
-        // Also soft-delete values associated with this label
         await pool.query('UPDATE filter_values SET is_deleted = true WHERE filter_label_id = $1', [id]);
-        res.status(200).json({ success: true, message: 'Filter Label successfully deleted' });
+        res.status(200).json({ success: true, message: 'Filter Label successfully moved to bin.' });
     } catch (error) {
         res.status(500).json({ success: false, message: "Database Error: " + error.message });
     }
@@ -694,26 +730,34 @@ const getFilterValues = async (req, res) => {
 };
 
 const addFilterValue = async (req, res) => {
-    let { filter_label_id, filter_value } = req.body;
+    let { category_id, filter_label_id, filter_value } = req.body;
     if (filter_value) filter_value = filter_value.trim();
 
+    console.log(`[STITCH_DB] ADD_VALUE_SIGNAL: CAT=${category_id} LABEL=${filter_label_id} VALUE=${filter_value}`);
+
     try {
-        // 1. Check if it exists (case-insensitive)
+        // 🛡️ RE-ACTIVATION PULSE: Ensure parent label is alive for this injection
+        await pool.query('UPDATE filter_labels SET is_deleted = false WHERE id = $1', [filter_label_id]);
+
+        // 1. Cross-Category Check (High-Fidelity)
+        const labelCheck = await pool.query('SELECT * FROM filter_labels WHERE id = $1 AND category_id = $2', [filter_label_id, category_id]);
+        if (labelCheck.rows.length === 0) {
+            return res.status(400).json({ success: false, message: 'Data Mismatch: Label does not belong to specified category.' });
+        }
+
+        // 2. Avoid Duplicates (Case-Insensitive)
         const checkRes = await pool.query(
             `SELECT * FROM filter_values WHERE filter_label_id = $1 AND filter_value ILIKE $2`,
             [filter_label_id, filter_value]
         );
 
         if (checkRes.rows.length > 0) {
-            // 2. Reactivate if deleted
             const existing = checkRes.rows[0];
-            const updateRes = await pool.query(
-                `UPDATE filter_values SET is_deleted = false WHERE id = $1 RETURNING *`,
-                [existing.id]
-            );
-            return res.status(200).json({ success: true, message: 'Filter value reactivated', data: updateRes.rows[0] });
+            await pool.query('UPDATE filter_values SET is_deleted = false WHERE id = $1', [existing.id]);
+            return res.status(200).json({ success: true, message: 'Specification adopted', data: existing });
         }
 
+        // 3. Atomic Injection
         const result = await pool.query(
             `INSERT INTO filter_values (filter_label_id, filter_value) VALUES ($1, $2) RETURNING *`,
             [filter_label_id, filter_value]
@@ -746,7 +790,7 @@ const deleteFilterValue = async (req, res) => {
     const { id } = req.params;
     try {
         await pool.query('UPDATE filter_values SET is_deleted = true WHERE id = $1', [id]);
-        res.status(200).json({ success: true, message: 'Filter Value successfully deleted' });
+        res.status(200).json({ success: true, message: 'Filter Value successfully moved to bin.' });
     } catch (error) {
         res.status(500).json({ success: false, message: "Database Error: " + error.message });
     }
@@ -775,30 +819,117 @@ const updateFilterValue = async (req, res) => {
 };
 
 const saveFullFilter = async (req, res) => {
-    const { category_id, filter_label, options = [] } = req.body;
+    let { category_id, filter_label, options = [] } = req.body;
+    filter_label = filter_label?.toString().trim();
+    if (!filter_label) return res.status(400).json({ success: false, message: 'Label name is required.' });
+
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const labelRes = await client.query(
-            `INSERT INTO filter_labels (category_id, filter_label) VALUES ($1, $2) RETURNING id`,
+
+        // 1. Atomic Manifest Adoption (Industrial Upsert)
+        const upsertRes = await client.query(`
+            INSERT INTO filter_labels (category_id, filter_label) 
+            VALUES ($1, $2)
+            ON CONFLICT (category_id, LOWER(filter_label)) 
+            DO UPDATE SET is_deleted = false, filter_label = EXCLUDED.filter_label
+            RETURNING id`,
             [category_id, filter_label]
         );
-        const labelId = labelRes.rows[0].id;
-        for (const val of options) {
-            if (val && val.toString().trim()) {
+        const labelId = upsertRes.rows[0].id;
+
+        // 2. Options Synchronization (Industrial Sync)
+        const trimmedOptions = options.map(o => o.toString().trim()).filter(o => o.length > 0);
+
+        // Mark ALL existing as 'Draft-Deleted' (soft reset for this label's pulse)
+        await client.query('UPDATE filter_values SET is_deleted = true WHERE filter_label_id = $1', [labelId]);
+
+        for (const val of trimmedOptions) {
+            // Check if option existed before
+            const valCheck = await client.query(
+                'SELECT id FROM filter_values WHERE filter_label_id = $1 AND filter_value ILIKE $2',
+                [labelId, val]
+            );
+
+            if (valCheck.rows.length > 0) {
+                await client.query('UPDATE filter_values SET is_deleted = false, filter_value = $1 WHERE id = $2', [val, valCheck.rows[0].id]);
+            } else {
                 await client.query(
                     `INSERT INTO filter_values (filter_label_id, filter_value) VALUES ($1, $2)`,
-                    [labelId, val.toString().trim()]
+                    [labelId, val]
                 );
             }
         }
+
         await client.query('COMMIT');
-        res.status(201).json({ success: true, message: 'Saved successfully!' });
+        res.status(201).json({ success: true, message: 'Filter Manifest Synced Successfully!' });
     } catch (error) {
         await client.query('ROLLBACK');
+        console.error("SAVE FULL FILTER ERROR:", error);
         res.status(500).json({ success: false, message: "Database Error: " + error.message });
     } finally {
         client.release();
+    }
+};
+
+const toggleProductHot = async (req, res) => {
+    const { id } = req.params;
+    console.log(`[STITCH_HUB] TOGGLE_HOT_SIGNAL: ID=${id}`);
+    try {
+        const result = await pool.query(
+            'UPDATE product_details SET is_hot = NOT is_hot WHERE id = $1 RETURNING *',
+            [id]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Product not found' });
+        }
+        console.log(`[STITCH_HUB] HOT_STATE_FINAL: ID=${id}, STATE=${result.rows[0].is_hot}`);
+        res.status(200).json({ success: true, data: result.rows[0] });
+    } catch (error) {
+        console.error('TOGGLE_HOT_ERROR:', error);
+        res.status(500).json({ success: false, message: "Database Error: " + error.message });
+    }
+};
+
+const toggleProductNew = async (req, res) => {
+    const { id } = req.params;
+    console.log(`[STITCH_HUB] TOGGLE_NEW_SIGNAL: ID=${id}`);
+    try {
+        const result = await pool.query(
+            'UPDATE product_details SET is_new = NOT is_new WHERE id = $1 RETURNING *',
+            [id]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Product not found' });
+        }
+        console.log(`[STITCH_HUB] NEW_STATE_FINAL: ID=${id}, STATE=${result.rows[0].is_new}`);
+        res.status(200).json({ success: true, data: result.rows[0] });
+    } catch (error) {
+        console.error('TOGGLE_NEW_ERROR:', error);
+        res.status(500).json({ success: false, message: "Database Error: " + error.message });
+    }
+};
+
+const toggleProductActive = async (req, res) => {
+    const { id } = req.params;
+    console.log(`[STITCH_HUB] TOGGLE_SIGNAL: ID=${id}`);
+    try {
+        // ⚡ Force-flip the boolean bit and return the new state pulse
+        const result = await pool.query(
+            'UPDATE product_details SET is_active = NOT COALESCE(is_active, false) WHERE id = $1 RETURNING *',
+            [id]
+        );
+
+        if (result.rows.length === 0) {
+            console.warn(`[STITCH_HUB] TARGET_NOT_FOUND: ${id}`);
+            return res.status(404).json({ success: false, message: 'Product not found' });
+        }
+
+        console.log(`[STITCH_HUB] STATUS_SYNC: ID=${id}, NEW_ACTIVE=${result.rows[0].is_active}`);
+        res.status(200).json({ success: true, data: result.rows[0] });
+    } catch (error) {
+        console.error("[STITCH_HUB] TOGGLE_FAILURE:", error);
+        res.status(500).json({ success: false, message: "Database Error: " + error.message });
     }
 };
 
@@ -821,5 +952,8 @@ module.exports = {
     getFilterConfig,
     saveFullFilter,
     updateFilterLabel,
-    updateFilterValue
+    updateFilterValue,
+    toggleProductHot,
+    toggleProductNew,
+    toggleProductActive
 };

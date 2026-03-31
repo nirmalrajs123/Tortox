@@ -478,7 +478,14 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
 
         const filtersToSave = filtersList
             .filter(f => f.value && f.value.trim() !== '')
-            .map(f => ({ filter_type_id: f.id, filter_value: f.value }));
+            .map(f => {
+                const optMatch = (f.options || []).find(opt => opt.filter_value === f.value);
+                return { 
+                    filter_type_id: f.id, 
+                    filter_value: f.value,
+                    filter_value_id: optMatch ? optMatch.id : null
+                };
+            });
         formData.append('filters', JSON.stringify(filtersToSave));
 
         if (mainImageFile) {
@@ -497,7 +504,14 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
         formData.append('combinations', JSON.stringify(combinations.map(c => ({
             Color: c.Color, Size: c.Size, Style: c.Style,
             features: (c.features || []).map(f => typeof f === 'object' ? f.text : f),
-            filters: c.filters,
+            filters: (c.filters || []).map(f => {
+                const opt = (f.options || []).find(o => o.filter_value === f.value);
+                return {
+                    id: f.id,
+                    value: f.value,
+                    filter_value_id: opt ? opt.id : null
+                };
+            }),
             specs: (c.specs || []).map((s, sIdx) => ({
                 ...s,
                 order: sIdx + 1

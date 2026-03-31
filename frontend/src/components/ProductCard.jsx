@@ -4,6 +4,11 @@ import { useNavigate } from 'react-router-dom';
 
 const ProductCard = ({ product }) => {
     const navigate = useNavigate();
+    const [selectedImage, setSelectedImage] = React.useState(null);
+    const [isHovered, setIsHovered] = React.useState(false);
+
+    // Initial image reset when product changes
+    React.useEffect(() => { setSelectedImage(null); }, [product.id]);
 
     // Helper to get specs safe properly flawlessly
     const getSpec = (key) => {
@@ -17,103 +22,130 @@ const ProductCard = ({ product }) => {
     const mb = getSpec('mb_compat');
     const dims = getSpec('dimensions');
 
+    const mainImg = selectedImage || (isHovered && product.hover_image ? product.hover_image : (product.main_image || product.image));
+    const finalSrc = mainImg || 'https://via.placeholder.com/600x600?text=TORTOX+HARDWARE';
+
     return (
         <motion.div
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
             onClick={() => {
                 const slug = product.modal ? product.modal.toLowerCase().replace(/\s+/g, '-') : product.id;
                 navigate(`/products/${slug}`);
             }}
-            whileHover={{ y: -5 }}
+            whileHover={{ y: -5, boxShadow: '0 20px 40px rgba(0,0,0,0.06)' }}
             transition={{ duration: 0.3 }}
             style={{
                 background: '#ffffff',
-                borderRadius: '16px',
-                padding: '2rem 1.5rem',
+                borderRadius: '8px',
+                padding: '20px',
                 display: 'flex',
                 flexDirection: 'column',
                 cursor: 'pointer',
                 position: 'relative',
-                transition: 'box-shadow 0.3s ease'
+                transition: 'all 0.3s ease',
+                border: '1px solid #f2f2f2',
+                minHeight: '420px'
             }}
         >
-            {/* Image Container setup framing flawlessly perfectly flawlessly */}
+            {/* Dynamic Badge */}
+            {(product.is_hot || product.is_new) && (
+                <span style={{
+                    position: 'absolute', top: '15px', left: '15px',
+                    background: product.is_hot ? '#e11919' : '#000',
+                    color: '#fff', padding: '4px 12px',
+                    fontSize: '0.7rem', fontWeight: 900, zIndex: 2,
+                    textTransform: 'uppercase', letterSpacing: '2px'
+                }}>
+                    {product.is_hot ? 'Hot' : 'New'}
+                </span>
+            )}
+
+            {/* Image Container */}
             <div style={{
                 width: '100%',
                 aspectRatio: '1/1',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginBottom: '1.5rem',
+                marginBottom: '40px',
                 overflow: 'hidden'
             }}>
                 <img
-                    src={product.main_image || product.image || 'https://via.placeholder.com/300'}
+                    src={finalSrc}
                     alt={product.product_name}
                     style={{
-                        maxWidth: '90%',
-                        maxHeight: '90%',
-                        objectFit: 'contain'
+                        width: '90%',
+                        height: '90%',
+                        objectFit: 'contain',
+                        transition: 'transform 0.5s ease',
+                        transform: isHovered ? 'scale(1.05)' : 'scale(1)'
+                    }}
+                    onError={(e) => {
+                        if (e.target.src !== 'https://via.placeholder.com/600x600?text=TORTOX+HARDWARE') {
+                            e.target.src = 'https://via.placeholder.com/600x600?text=TORTOX+HARDWARE';
+                        }
                     }}
                 />
             </div>
 
-            {/* Info Section framing securely correctly framing */}
-            <h3 style={{
-                fontSize: '1.15rem',
-                fontWeight: 700,
-                color: '#1d1d1f',
-                margin: '0 0 4px 0',
-                letterSpacing: '-0.3px',
-                textAlign: 'left'
-            }}>
-                {product.product_name || product.modal || 'Unnamed Unit'}
-            </h3>
+            {/* Info Section */}
+            <div style={{ textAlign: 'left', width: '100%' }}>
+                <h3 style={{
+                    fontSize: '1.2rem',
+                    fontWeight: 900,
+                    color: '#000',
+                    margin: '0 0 10px 0',
+                    letterSpacing: '0.5px',
+                    textTransform: 'uppercase'
+                }}>
+                    {product.modal || product.product_name || 'Unnamed Unit'}
+                </h3>
 
-            <div style={{
-                fontSize: '0.85rem',
-                color: '#6e6e73',
-                fontWeight: 500,
-                textAlign: 'left',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-            }}>
-                {mb} {mb && dims ? '/' : ''} {dims}
-                {(!mb && !dims) && 'Tactical Performance Unit'}
+                <div style={{
+                    fontSize: '0.85rem',
+                    color: '#86868b',
+                    fontWeight: 600,
+                    marginBottom: '20px'
+                }}>
+                    {mb || 'ATX'} / {dims || product.product_name || 'Standard Unit'}
+                </div>
             </div>
 
-            {/* Dynamic Color Indicator Dots setup securely correctly flaws decently trigger flawlessly */}
+            {/* Dynamic Color Indicator Dots */}
             <div style={{
                 marginTop: 'auto',
                 display: 'flex',
                 justifyContent: 'flex-end',
-                gap: '8px',
-                paddingTop: '10px'
+                gap: '8px'
             }}>
-                {product.available_colors && product.available_colors.length > 0 ? (
-                    product.available_colors.map((color, idx) => (
-                        <div 
+                {product.variant_data && product.variant_data.length > 0 ? (
+                    product.variant_data.map((v, idx) => (
+                        <div
                             key={idx}
-                            title={color}
+                            title={v.color.toUpperCase()}
+                            onMouseEnter={() => v.image && setSelectedImage(v.image)}
+                            onMouseLeave={() => setSelectedImage(null)}
                             style={{
-                                width: '14px',
-                                height: '14px',
+                                width: '16px',
+                                height: '16px',
                                 borderRadius: '50%',
-                                background: color || '#888',
-                                border: '2px solid #fff',
-                                boxShadow: '0 0 0 1px #d2d2d7',
-                                cursor: 'help'
-                            }} 
+                                background: v.color.toLowerCase().trim() === 'black' ? '#000' : (v.color.toLowerCase().trim() === 'white' ? '#fff' : v.color),
+                                border: v.color.toLowerCase().trim() === 'white' ? '1.5px solid #dcdcdc' : '1px solid rgba(0,0,0,0.1)',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                transform: selectedImage === v.image ? 'scale(1.2)' : 'scale(1)',
+                                zIndex: 5
+                            }}
                         />
                     ))
                 ) : (
                     <div style={{
-                        width: '14px',
-                        height: '14px',
+                        width: '16px',
+                        height: '16px',
                         borderRadius: '50%',
-                        background: '#000',
-                        border: '2px solid #fff',
-                        boxShadow: '0 0 0 1px #d2d2d7'
+                        background: '#040404',
+                        border: '1px solid rgba(0,0,0,0.1)'
                     }} />
                 )}
             </div>

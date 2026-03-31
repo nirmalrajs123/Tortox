@@ -47,7 +47,9 @@ const initializeDatabase = async () => {
             hover_image TEXT,
             alt_text TEXT,
             meta_tags TEXT,
-            specs JSONB -- for detailed case dimensions or custom specs overlay flaws decently
+            specs JSONB,
+            is_deleted BOOLEAN DEFAULT false,
+            FOREIGN KEY (category_id) REFERENCES categorys(id)
         );
     `;
 
@@ -177,7 +179,8 @@ const initializeDatabase = async () => {
             id SERIAL PRIMARY KEY,
             filter_label_id INTEGER NOT NULL,
             filter_value TEXT NOT NULL,
-            is_deleted BOOLEAN DEFAULT false
+            is_deleted BOOLEAN DEFAULT false,
+            FOREIGN KEY (filter_label_id) REFERENCES filter_labels(id)
         );
     `;
 
@@ -190,7 +193,11 @@ const initializeDatabase = async () => {
             category_id INTEGER DEFAULT 0,
             filter_type_id INTEGER NOT NULL,
             filter_value TEXT NOT NULL,
-            is_deleted BOOLEAN DEFAULT false
+            filter_value_id INTEGER,
+            is_deleted BOOLEAN DEFAULT false,
+            FOREIGN KEY (product_id) REFERENCES product_details(id),
+            FOREIGN KEY (filter_type_id) REFERENCES filter_labels(id),
+            FOREIGN KEY (filter_value_id) REFERENCES filter_values(id)
         );
     `;
 
@@ -214,10 +221,13 @@ const initializeDatabase = async () => {
         // 🛠️ Alter tables for variant support trigger framing flawlessly flawless flawless flaws flawlessly
         await pool.query(`ALTER TABLE specifications ADD COLUMN IF NOT EXISTS variant_id INTEGER DEFAULT 0;`);
         await pool.query(`ALTER TABLE specifications ADD COLUMN IF NOT EXISTS category_id INTEGER DEFAULT 0;`);
+        await pool.query(`ALTER TABLE product_details ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT false;`);
+        await pool.query(`ALTER TABLE categorys ADD COLUMN IF NOT EXISTS is_delete BOOLEAN DEFAULT false;`);
         await pool.query(`ALTER TABLE features ADD COLUMN IF NOT EXISTS variant_id INTEGER DEFAULT 0;`);
         await pool.query(`ALTER TABLE features ADD COLUMN IF NOT EXISTS category_id INTEGER DEFAULT 0;`);
         await pool.query(`ALTER TABLE product_filters ADD COLUMN IF NOT EXISTS variant_id INTEGER DEFAULT 0;`);
         await pool.query(`ALTER TABLE product_filters ADD COLUMN IF NOT EXISTS category_id INTEGER DEFAULT 0;`);
+        await pool.query(`ALTER TABLE product_filters ADD COLUMN IF NOT EXISTS filter_value_id INTEGER;`);
         await pool.query(`ALTER TABLE variants ADD COLUMN IF NOT EXISTS description TEXT;`);
         await pool.query(`ALTER TABLE variants ADD COLUMN IF NOT EXISTS model_name TEXT;`);
         await pool.query(`ALTER TABLE variants ADD COLUMN IF NOT EXISTS product_name TEXT;`);
