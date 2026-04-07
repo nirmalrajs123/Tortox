@@ -33,20 +33,20 @@ const ProductCard = ({ product }) => {
                 const slug = product.modal ? product.modal.toLowerCase().replace(/\s+/g, '-') : product.id;
                 navigate(`/products/${slug}`);
             }}
-            whileHover={{ y: -12, boxShadow: '0 40px 100px rgba(0,0,0,0.15)' }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            whileHover={{ y: -10, boxShadow: '0 30px 60px rgba(0,0,0,0.12)' }}
+            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
             style={{
                 background: '#ffffff',
-                borderRadius: '32px',
-                padding: '30px',
+                borderRadius: '16px',
+                padding: '24px',
                 display: 'flex',
                 flexDirection: 'column',
                 cursor: 'pointer',
                 position: 'relative',
-                transition: 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+                transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
                 border: '1px solid #f0f0f0',
-                boxShadow: '0 15px 45px rgba(0,0,0,0.08)',
-                minHeight: '440px',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
+                minHeight: '420px',
                 overflow: 'hidden'
             }}
         >
@@ -57,9 +57,9 @@ const ProductCard = ({ product }) => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginBottom: '25px',
+                marginBottom: '20px',
                 overflow: 'hidden',
-                padding: '10px'
+                padding: '5px'
             }}>
                 <img
                     src={finalSrc}
@@ -68,8 +68,8 @@ const ProductCard = ({ product }) => {
                         maxWidth: '100%',
                         maxHeight: '100%',
                         objectFit: 'contain',
-                        transition: 'transform 0.6s cubic-bezier(0.25, 1, 0.5, 1)',
-                        transform: isHovered ? 'scale(1.08)' : 'scale(1)'
+                        transition: 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
+                        transform: isHovered ? 'scale(1.05)' : 'scale(1)'
                     }}
                     onError={(e) => {
                         if (e.target.src !== 'https://via.placeholder.com/600x600?text=TORTOX+HARDWARE') {
@@ -80,22 +80,23 @@ const ProductCard = ({ product }) => {
             </div>
 
             {/* Info Section */}
-            <div style={{ textAlign: 'left', width: '100%' }}>
+            <div style={{ textAlign: 'left', width: '100%', padding: '0 5px' }}>
                 <h3 style={{
-                    fontSize: '1.4rem',
-                    fontWeight: 700,
-                    color: '#1d1d1f',
-                    margin: '0 0 6px 0',
-                    lineHeight: 1.2
+                    fontSize: '1.25rem',
+                    fontWeight: 800,
+                    color: '#000',
+                    margin: '0 0 4px 0',
+                    lineHeight: 1.2,
+                    letterSpacing: '-0.3px'
                 }}>
-                    {product.product_name || product.modal || `Unit ${product.id}`} {product.category_name === 'PC CASES' ? 'PC Case' : ''}
+                    {product.product_name || product.modal || `Unit ${product.id}`}
                 </h3>
 
                 <div style={{
-                    fontSize: '0.9rem',
-                    color: '#86868b',
-                    fontWeight: 500,
-                    letterSpacing: '0.1px'
+                    fontSize: '0.85rem',
+                    color: '#71717a',
+                    fontWeight: 600,
+                    opacity: 0.8
                 }}>
                     {mb || 'ATX'} / {dims || 'Standard Unit'}
                 </div>
@@ -106,10 +107,11 @@ const ProductCard = ({ product }) => {
                 marginTop: 'auto',
                 display: 'flex',
                 justifyContent: 'flex-end',
-                gap: '8px'
+                gap: '8px',
+                paddingBottom: '5px'
             }}>
                 {product.variant_data && product.variant_data.length > 0 ? (
-                    // Deduplicate colors for the card dots using variant_data from backend
+                    // Deduplicate colors for the card dots
                     [...new Map(product.variant_data.map(v => [v.color, v])).values()].map((v, idx) => {
                         const isThisSelected = (selectedImage === v.image) || (!selectedImage && idx === 0);
                         const displayColor = v.color?.toLowerCase().trim();
@@ -119,13 +121,13 @@ const ProductCard = ({ product }) => {
                                 onMouseEnter={() => v.image && setSelectedImage(v.image)}
                                 onMouseLeave={() => setSelectedImage(null)}
                                 style={{
-                                    width: '24px',
-                                    height: '24px',
+                                    width: '20px',
+                                    height: '20px',
                                     borderRadius: '50%',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    border: isThisSelected ? '2px solid #ff7e3b' : '2px solid transparent',
+                                    border: isThisSelected ? '1.5px solid #ff7e3b' : '1.5px solid transparent',
                                     padding: '2px',
                                     transition: 'all 0.2s ease',
                                     cursor: 'pointer'
@@ -136,15 +138,14 @@ const ProductCard = ({ product }) => {
                                     height: '100%',
                                     borderRadius: '50%',
                                     background: displayColor === 'black' ? '#000' : (displayColor === 'white' ? '#fff' : displayColor),
-                                    border: displayColor === 'white' ? '1px solid #e5e5e5' : 'none',
-                                    boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.1)'
+                                    border: displayColor === 'white' ? '1px solid #e1e1e1' : 'none'
                                 }} />
                             </div>
                         );
                     })
                 ) : (
                     <div style={{
-                        width: '24px', height: '24px', borderRadius: '50%', border: '2px solid #ff7e3b', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px'
+                        width: '20px', height: '20px', borderRadius: '50%', border: '1.5px solid #ff7e3b', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px'
                     }}>
                         <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: '#000' }} />
                     </div>

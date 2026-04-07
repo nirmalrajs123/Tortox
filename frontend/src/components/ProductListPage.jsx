@@ -194,7 +194,7 @@ const ProductListPage = () => {
                                 </p>
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '30px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px' }}>
                                 {filteredProducts.map((p) => (
                                     <ProductCard key={p.id} product={p} />
                                 ))}

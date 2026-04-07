@@ -104,7 +104,7 @@ const FilterSettings = () => {
 
     const handleDeleteLabel = async (id, e) => {
         e.stopPropagation();
-        if (!window.confirm("Delete filter label and all its values?")) return;
+        if (!window.confirm("PERMANENT DELETE: Remove filter label and all its values forever?")) return;
         try {
             await productService.deleteFilterLabel(id);
             if (selectedLabelId === id) setSelectedLabelId(null);
@@ -115,7 +115,7 @@ const FilterSettings = () => {
     };
 
     const handleDeleteValue = async (id) => {
-        if (!window.confirm("Delete this option?")) return;
+        if (!window.confirm("PERMANENT DELETE: Purge this option from the catalog?")) return;
         try {
             await productService.deleteFilterValue(id);
             loadValues();

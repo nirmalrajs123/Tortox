@@ -57,7 +57,7 @@ const SpecificationsSettings = () => {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm("Delete specification label?")) return;
+        if (!window.confirm("PERMANENT DELETE: Purge specification label from the global registry?")) return;
         try {
             await productService.deleteSpecLabel(id);
             loadSpecLabels();

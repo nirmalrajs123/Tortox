@@ -29,22 +29,22 @@ const CategorySettings = () => {
             await categoryService.create({ category_name: newCategory, parent_id: 0 });
             setNewCategory('');
             loadCategories();
-            showAlert('Category added successfully', 'success');
+            showAlert({ title: 'Success', message: 'Category added successfully', type: 'success' });
         } catch (err) {
             console.error(err);
-            showAlert(err.response?.data?.message || 'Failed to add category', 'error');
+            showAlert({ title: 'Operation Failed', message: err.response?.data?.message || 'Failed to add category', type: 'error' });
         }
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm("Delete category?")) return;
+        if (!window.confirm("PERMANENT DELETE: Remove category and all its associated data forever?")) return;
         try {
             await categoryService.delete(id);
             loadCategories();
-            showAlert('Category moved to bin', 'success');
+            showAlert({ title: 'Success', message: 'Category permanently purged', type: 'success' });
         } catch (err) {
             console.error(err);
-            showAlert(err.response?.data?.message || 'Failed to delete category', 'error');
+            showAlert({ title: 'Operation Failed', message: err.response?.data?.message || 'Failed to delete category', type: 'error' });
         }
     };
 
@@ -53,10 +53,10 @@ const CategorySettings = () => {
             await categoryService.update(id, { category_name: editValue, parent_id: 0 });
             setEditingId(null);
             loadCategories();
-            showAlert('Category updated', 'success');
+            showAlert({ title: 'Success', message: 'Category updated', type: 'success' });
         } catch (err) {
             console.error(err);
-            showAlert(err.response?.data?.message || 'Update failed', 'error');
+            showAlert({ title: 'Operation Failed', message: err.response?.data?.message || 'Update failed', type: 'error' });
         }
     };
 

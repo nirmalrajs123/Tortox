@@ -10,8 +10,6 @@ const BannerSettings = () => {
     const [editingId, setEditingId] = useState(null);
     const [formData, setFormData] = useState({
         banner_text: '',
-        subtitle: '',
-        description: '',
         media_type: 'image',
         mediaFile: null,
         previewUrl: null,
@@ -51,8 +49,6 @@ const BannerSettings = () => {
     const resetForm = () => {
         setFormData({
             banner_text: '',
-            subtitle: '',
-            description: '',
             media_type: 'image',
             mediaFile: null,
             previewUrl: null,
@@ -66,8 +62,6 @@ const BannerSettings = () => {
         setEditingId(banner.id);
         setFormData({
             banner_text: banner.banner_text || '',
-            subtitle: banner.subtitle || '',
-            description: banner.description || '',
             media_type: banner.media_type || 'image',
             mediaFile: null,
             previewUrl: banner.media_path,
@@ -80,8 +74,6 @@ const BannerSettings = () => {
         e.preventDefault();
         const data = new FormData();
         data.append('banner_text', formData.banner_text);
-        data.append('subtitle', formData.subtitle);
-        data.append('description', formData.description);
         data.append('media_type', formData.media_type);
         
         if (formData.mediaFile) {
@@ -156,7 +148,7 @@ const BannerSettings = () => {
                         }}
                     >
                         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '2rem' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
                                 <div>
                                     <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>Headline Text</label>
                                     <input
@@ -164,16 +156,6 @@ const BannerSettings = () => {
                                         value={formData.banner_text}
                                         onChange={(e) => setFormData(p => ({ ...p, banner_text: e.target.value }))}
                                         placeholder="Main Title (e.g. HGFGHGHKIIO)"
-                                        style={{ width: '100%', padding: '16px 20px', borderRadius: '12px', background: 'var(--bg-surface)', border: '1px solid var(--border-ghost)', color: 'var(--text-main)', outline: 'none', fontSize: '0.9rem', fontWeight: 500 }}
-                                    />
-                                </div>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>Subtitle</label>
-                                    <input
-                                        type="text"
-                                        value={formData.subtitle}
-                                        onChange={(e) => setFormData(p => ({ ...p, subtitle: e.target.value }))}
-                                        placeholder="Top Label (e.g. Ensures maximum airflow)"
                                         style={{ width: '100%', padding: '16px 20px', borderRadius: '12px', background: 'var(--bg-surface)', border: '1px solid var(--border-ghost)', color: 'var(--text-main)', outline: 'none', fontSize: '0.9rem', fontWeight: 500 }}
                                     />
                                 </div>
@@ -188,16 +170,6 @@ const BannerSettings = () => {
                                         <option value="video">Dynamic Background (Video)</option>
                                     </select>
                                 </div>
-                            </div>
-
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>Bottom Description</label>
-                                <textarea
-                                    value={formData.description}
-                                    onChange={(e) => setFormData(p => ({ ...p, description: e.target.value }))}
-                                    placeholder="Enter additional product details or marketing punchlines..."
-                                    style={{ width: '100%', padding: '16px 20px', borderRadius: '12px', background: 'var(--bg-surface)', border: '1px solid var(--border-ghost)', color: 'var(--text-main)', outline: 'none', fontSize: '0.9rem', fontWeight: 500, minHeight: '80px', resize: 'vertical' }}
-                                />
                             </div>
 
                             <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>

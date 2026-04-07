@@ -24,8 +24,6 @@ const Hero = () => {
                         return {
                             image: imageUrl,
                             title: banner.banner_text || 'Premium Gaming Gear',
-                            subtitle: banner.subtitle,
-                            description: banner.description,
                             type: banner.media_type || 'image'
                         };
                     });
@@ -136,23 +134,6 @@ const Hero = () => {
                     transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
                     style={{ zIndex: 10, maxWidth: '1100px', padding: '0 40px' }}
                 >
-                    {currentSlide.subtitle && (
-                        <motion.p 
-                            initial={{ opacity: 0, letterSpacing: '4px' }}
-                            animate={{ opacity: 1, letterSpacing: '8px' }}
-                            style={{ 
-                                color: 'rgba(255,255,255,0.8)', 
-                                fontSize: '0.85rem', 
-                                fontWeight: 800, 
-                                textTransform: 'uppercase', 
-                                marginBottom: '25px',
-                                letterSpacing: '8px' 
-                            }}
-                        >
-                            {currentSlide.subtitle}
-                        </motion.p>
-                    )}
-
                     <h1 style={{
                         fontSize: 'clamp(3rem, 10vw, 7rem)',
                         fontWeight: 950,
@@ -170,24 +151,6 @@ const Hero = () => {
                             {currentSlide.title}
                         </span>
                     </h1>
-
-                    {currentSlide.description && (
-                        <motion.p 
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: 0.2 }}
-                            style={{ 
-                                color: 'rgba(255,255,255,0.6)', 
-                                fontSize: '1.2rem', 
-                                marginTop: '30px',
-                                maxWidth: '700px',
-                                margin: '30px auto 0',
-                                lineHeight: '1.6'
-                            }}
-                        >
-                            {currentSlide.description}
-                        </motion.p>
-                    )}
                 </motion.div>
             </AnimatePresence>
 

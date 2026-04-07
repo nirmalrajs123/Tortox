@@ -246,23 +246,7 @@ const addSpecLabel = async (req, res) => {
     if (spec_label) spec_label = spec_label.trim();
 
     try {
-        // 1. Check if it exists (case-insensitive)
-        const checkRes = await pool.query(
-            `SELECT * FROM spec_label WHERE category_id = $1 AND spec_label ILIKE $2`,
-            [category_id, spec_label]
-        );
-
-        if (checkRes.rows.length > 0) {
-            // 2. If it exists, Reactivate it if it was deleted, and update options
-            const existing = checkRes.rows[0];
-            const updateRes = await pool.query(
-                `UPDATE spec_label SET is_deleted = false, spec_options = $1 WHERE id = $2 RETURNING *`,
-                [spec_options || existing.spec_options, existing.id]
-            );
-            return res.status(200).json({ success: true, message: 'Label reactivated/updated', data: updateRes.rows[0] });
-        }
-
-        // 3. Create new if not exists
+        // 3. Create new manifest record
         const result = await pool.query(
             `INSERT INTO spec_label (category_id, spec_label, spec_options) VALUES ($1, $2, $3) RETURNING *`,
             [category_id, spec_label, spec_options || null]
@@ -761,19 +745,34 @@ const updateProduct = async (req, res) => {
 
 const deleteProduct = async (req, res) => {
     const { id } = req.params;
+    const client = await pool.connect();
     try {
-        await pool.query(`update product_details set is_deleted = true where id = $1`, [id]);
-        res.status(200).json({ success: true, message: 'Product manifest moved to bin.' });
+        await client.query('BEGIN');
+        // 🗑️ Cascading Hard Delete (Physical Manifest Wipe)
+        await client.query('DELETE FROM product_images WHERE product_id = $1', [id]);
+        await client.query('DELETE FROM specifications WHERE product_id = $1', [id]);
+        await client.query('DELETE FROM features WHERE product_id = $1', [id]);
+        await client.query('DELETE FROM product_filters WHERE product_id = $1', [id]);
+        await client.query('DELETE FROM additional_downloads WHERE product_id = $1', [id]);
+        await client.query('DELETE FROM variant_images WHERE product_id = $1', [id]);
+        await client.query('DELETE FROM variants WHERE product_id = $1', [id]);
+        await client.query('DELETE FROM product_details WHERE id = $1', [id]);
+        await client.query('COMMIT');
+        res.status(200).json({ success: true, message: 'Product permanently purged from hub.' });
     } catch (error) {
+        await client.query('ROLLBACK');
         res.status(500).json({ success: false, message: "Database Error: " + error.message });
+    } finally {
+        client.release();
     }
 };
 
 const deleteSpecLabel = async (req, res) => {
     const { id } = req.params;
     try {
-        await pool.query('UPDATE spec_label SET is_deleted = true WHERE id = $1', [id]);
-        res.status(200).json({ success: true, message: 'Detailed Specification Label successfully deleted' });
+        // 🗑️ Hard Purge Signal (Specifications Registry)
+        await pool.query('DELETE FROM spec_label WHERE id = $1', [id]);
+        res.status(200).json({ success: true, message: 'Detailed Specification Label permanently purged' });
     } catch (error) {
         res.status(500).json({ success: false, message: "Database Error: " + error.message });
     }
@@ -783,7 +782,7 @@ const getFilterLabels = async (req, res) => {
     const { category_id } = req.params;
     console.log("FETCHING LABELS FOR CATEGORY:", category_id);
     try {
-        const result = await pool.query('SELECT * FROM filter_labels WHERE category_id = $1 AND is_deleted = false ORDER BY order_id ASC, id ASC', [category_id]);
+        const result = await pool.query('SELECT * FROM filter_labels WHERE category_id = $1 ORDER BY order_id ASC, id ASC', [category_id]);
         console.log("LABELS FOUND:", result.rows.length);
         res.status(200).json({ success: true, data: result.rows });
     } catch (error) {
@@ -801,8 +800,6 @@ const addFilterLabel = async (req, res) => {
         const result = await pool.query(`
             INSERT INTO filter_labels (category_id, filter_label, order_id) 
             VALUES ($1, $2, (SELECT COALESCE(MAX(order_id), 0) + 1 FROM filter_labels WHERE category_id = $1))
-            ON CONFLICT (category_id, LOWER(filter_label)) 
-            DO UPDATE SET is_deleted = false, filter_label = EXCLUDED.filter_label
             RETURNING *`,
             [category_id, filter_label]
         );
@@ -816,9 +813,10 @@ const addFilterLabel = async (req, res) => {
 const deleteFilterLabel = async (req, res) => {
     const { id } = req.params;
     try {
-        await pool.query('UPDATE filter_labels SET is_deleted = true WHERE id = $1', [id]);
-        await pool.query('UPDATE filter_values SET is_deleted = true WHERE filter_label_id = $1', [id]);
-        res.status(200).json({ success: true, message: 'Filter Label successfully moved to bin.' });
+        // 🗑️ Cascading Purge Manifest
+        await pool.query('DELETE FROM filter_values WHERE filter_label_id = $1', [id]);
+        await pool.query('DELETE FROM filter_labels WHERE id = $1', [id]);
+        res.status(200).json({ success: true, message: 'Filter Label and all children permanently purged.' });
     } catch (error) {
         res.status(500).json({ success: false, message: "Database Error: " + error.message });
     }
@@ -827,7 +825,7 @@ const deleteFilterLabel = async (req, res) => {
 const getFilterValues = async (req, res) => {
     const { label_id } = req.params;
     try {
-        const result = await pool.query('SELECT * FROM filter_values WHERE filter_label_id = $1 AND is_deleted = false ORDER BY order_id ASC, id ASC', [label_id]);
+        const result = await pool.query('SELECT * FROM filter_values WHERE filter_label_id = $1 ORDER BY order_id ASC, id ASC', [label_id]);
         res.status(200).json({ success: true, data: result.rows });
     } catch (error) {
         res.status(500).json({ success: false, message: "Database Error: " + error.message });
@@ -841,25 +839,13 @@ const addFilterValue = async (req, res) => {
     console.log(`[STITCH_DB] ADD_VALUE_SIGNAL: CAT=${category_id} LABEL=${filter_label_id} VALUE=${filter_value}`);
 
     try {
-        // 🛡️ RE-ACTIVATION PULSE: Ensure parent label is alive for this injection
-        await pool.query('UPDATE filter_labels SET is_deleted = false WHERE id = $1', [filter_label_id]);
-
-        // 1. Cross-Category Check (High-Fidelity)
-        const labelCheck = await pool.query('SELECT * FROM filter_labels WHERE id = $1 AND category_id = $2', [filter_label_id, category_id]);
-        if (labelCheck.rows.length === 0) {
-            return res.status(400).json({ success: false, message: 'Data Mismatch: Label does not belong to specified category.' });
-        }
-
-        // 2. Avoid Duplicates (Case-Insensitive)
         const checkRes = await pool.query(
             `SELECT * FROM filter_values WHERE filter_label_id = $1 AND filter_value ILIKE $2`,
             [filter_label_id, filter_value]
         );
 
         if (checkRes.rows.length > 0) {
-            const existing = checkRes.rows[0];
-            await pool.query('UPDATE filter_values SET is_deleted = false WHERE id = $1', [existing.id]);
-            return res.status(200).json({ success: true, message: 'Specification adopted', data: existing });
+            return res.status(400).json({ success: false, message: 'Value already exists in this manifest.' });
         }
 
         // 3. Atomic Injection
@@ -879,11 +865,11 @@ const addFilterValue = async (req, res) => {
 const getFilterConfig = async (req, res) => {
     const { category_id } = req.params;
     try {
-        const labelsRes = await pool.query('SELECT * FROM filter_labels WHERE category_id = $1 AND is_deleted = false ORDER BY order_id ASC, id ASC', [category_id]);
-
+        const labelsRes = await pool.query('SELECT * FROM filter_labels WHERE category_id = $1 ORDER BY order_id ASC, id ASC', [category_id]);
+ 
         const labels = labelsRes.rows;
         for (let label of labels) {
-            const valuesRes = await pool.query('SELECT id, filter_value FROM filter_values WHERE filter_label_id = $1 AND is_deleted = false ORDER BY order_id ASC, id ASC', [label.id]);
+            const valuesRes = await pool.query('SELECT id, filter_value FROM filter_values WHERE filter_label_id = $1 ORDER BY order_id ASC, id ASC', [label.id]);
             label.values = valuesRes.rows;
         }
 
@@ -896,8 +882,8 @@ const getFilterConfig = async (req, res) => {
 const deleteFilterValue = async (req, res) => {
     const { id } = req.params;
     try {
-        await pool.query('UPDATE filter_values SET is_deleted = true WHERE id = $1', [id]);
-        res.status(200).json({ success: true, message: 'Filter Value successfully moved to bin.' });
+        await pool.query('DELETE FROM filter_values WHERE id = $1', [id]);
+        res.status(200).json({ success: true, message: 'Filter Value permanently purged.' });
     } catch (error) {
         res.status(500).json({ success: false, message: "Database Error: " + error.message });
     }
@@ -934,39 +920,29 @@ const saveFullFilter = async (req, res) => {
     try {
         await client.query('BEGIN');
 
-        // 1. Atomic Manifest Adoption (Industrial Upsert)
+        // 1. Atomic Manifest Adoption (Industrial Injection)
         const upsertRes = await client.query(`
             INSERT INTO filter_labels (category_id, filter_label, order_id) 
             VALUES ($1, $2, (SELECT COALESCE(MAX(order_id), 0) + 1 FROM filter_labels WHERE category_id = $1))
             ON CONFLICT (category_id, LOWER(filter_label)) 
-            DO UPDATE SET is_deleted = false, filter_label = EXCLUDED.filter_label
+            DO UPDATE SET filter_label = EXCLUDED.filter_label
             RETURNING id`,
             [category_id, filter_label]
         );
         const labelId = upsertRes.rows[0].id;
-
-        // 2. Options Synchronization (Industrial Sync)
+ 
+        // 2. Options Synchronization (Industrial Sync Pulse)
         const trimmedOptions = options.map(o => o.toString().trim()).filter(o => o.length > 0);
-
-        // Mark ALL existing as 'Draft-Deleted' (soft reset for this label's pulse)
-        await client.query('UPDATE filter_values SET is_deleted = true WHERE filter_label_id = $1', [labelId]);
-
+ 
+        // 🗑️ Hard Purge for Fresh Manifest Injection
+        await client.query('DELETE FROM filter_values WHERE filter_label_id = $1', [labelId]);
+ 
         for (const val of trimmedOptions) {
-            // Check if option existed before
-            const valCheck = await client.query(
-                'SELECT id FROM filter_values WHERE filter_label_id = $1 AND filter_value ILIKE $2',
+            await client.query(
+                `INSERT INTO filter_values (filter_label_id, filter_value, order_id) 
+                 VALUES ($1, $2, (SELECT COALESCE(MAX(order_id), 0) + 1 FROM filter_values WHERE filter_label_id = $1))`,
                 [labelId, val]
             );
-
-            if (valCheck.rows.length > 0) {
-                await client.query('UPDATE filter_values SET is_deleted = false, filter_value = $1 WHERE id = $2', [val, valCheck.rows[0].id]);
-            } else {
-                await client.query(
-                    `INSERT INTO filter_values (filter_label_id, filter_value, order_id) 
-                     VALUES ($1, $2, (SELECT COALESCE(MAX(order_id), 0) + 1 FROM filter_values WHERE filter_label_id = $1))`,
-                    [labelId, val]
-                );
-            }
         }
 
         await client.query('COMMIT');
