@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { categoryService } from '../services/category';
 import TortoxLogo from './TortoxLogo';
 
-const Navbar = ({ toggleTheme, theme = 'light' }) => {
+const Navbar = ({ toggleTheme, theme = 'light', fixed = true }) => {
     const navigate = useNavigate();
     const [hoveredItem, setHoveredItem] = useState(null);
     const [categories, setCategories] = useState([]);
@@ -46,7 +46,7 @@ const Navbar = ({ toggleTheme, theme = 'light' }) => {
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.6 }}
             style={{
-                position: 'fixed', top: 0, left: 0, width: '100%', zIndex: 1000,
+                position: fixed ? 'fixed' : 'relative', top: 0, left: 0, width: '100%', zIndex: 1000,
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 padding: '0.8rem 6rem', backgroundColor: theme === 'light' ? '#ffffff' : '#0a0a0b',
                 borderBottom: '1px solid var(--border-ghost)', boxSizing: 'border-box',

@@ -33,18 +33,18 @@ const LatestGear = () => {
                 transition={{ duration: 0.6 }}
                 style={{ marginBottom: '4rem', textAlign: 'left' }}
             >
-                <h3 style={{ fontSize: '0.9rem', fontWeight: 900, color: '#e11919', margin: '0 0 10px 0', letterSpacing: '2px', textTransform: 'uppercase' }}>
+                <h3 style={{ fontSize: '0.9rem', color: 'var(--accent-primary)', margin: '0 0 10px 0', letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 900 }}>
                     New Arrivals
                 </h3>
-                <h2 style={{ fontSize: '2rem', fontWeight: 800, color: '#000', margin: 0 }}>
+                <h2 style={{ fontSize: '3rem' }}>
                     Just Landed
                 </h2>
             </motion.div>
 
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: '40px',
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: '20px',
             }}>
                 {products.map((product) => (
                     <ProductCard key={product.id} product={product} />

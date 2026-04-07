@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;700&family=Space+Grotesk:wght@300;400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
 
 :root {
   /* ⚡ TORTOX KINETIC - High-Vibrancy Studio architecture */
@@ -12,84 +12,66 @@
   --accent-secondary: #c81414;
   --accent-tertiary: #000000;
 
-  --text-main: #0f172a;
-  --text-muted: #475569;
-  --text-dim: #94a3b8;
+  --text-main: #1d1d1f; /* Apple-style black */
+  --text-muted: #86868b; /* Apple-style muted */
+  --text-dim: #d2d2d7;
 
-  --border-ghost: #f1f5f9;
-  --border-glow: rgba(225, 25, 25, 0.1);
-  --border-main: #e2e8f0;
+  --border-ghost: #f5f5f7;
+  --border-glow: rgba(0, 0, 0, 0.05);
+  --border-main: #d2d2d7;
 
-  --glass-bg: rgba(255, 255, 255, 0.95);
+  --glass-bg: rgba(255, 255, 255, 0.8);
   --radius-sm: 8px;
-  --radius-md: 16px;
+  --radius-md: 18px;
   --radius-lg: 32px;
 
-  --shadow-elite: 0 20px 50px -10px rgba(0, 0, 0, 0.05);
+  --shadow-elite: 0 10px 30px rgba(0, 0, 0, 0.05);
 }
 
 [data-theme='dark'] {
-  --bg-primary: #0a0a0b;
-  --bg-surface: #111112;
-  --bg-secondary: #1a1a1c;
-  --bg-tertiary: #2a2a2c;
-  --bg-high: #1c1c1e;
+  --bg-primary: #000000;
+  --bg-surface: #1d1d1f;
+  --bg-secondary: #121212;
+  --bg-tertiary: #1c1c1e;
+  --bg-high: #2c2c2e;
 
-  --text-main: #f1f5f9;
-  --text-muted: #94a3b8;
-  --text-dim: #64748b;
+  --text-main: #f5f5f7;
+  --text-muted: #86868b;
+  --text-dim: #424245;
 
-  --border-ghost: #2a2a2c;
-  --border-main: #3a3a3c;
-  --glass-bg: rgba(10, 10, 11, 0.95);
-}
-
-
-.glass-light {
-  background: rgba(255, 255, 255, 0.45) !important;
-  backdrop-filter: blur(40px) saturate(200%) brightness(1.15);
-  -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(1.15);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow:
-    0 8px 32px 0 rgba(31, 38, 135, 0.04),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.2);
-  border-radius: 28px;
-}
-
-.glass-vibrancy {
-  background: rgba(255, 255, 255, 0.5) !important;
-  backdrop-filter: blur(50px) saturate(210%) brightness(1.05);
-  -webkit-backdrop-filter: blur(50px) saturate(210%) brightness(1.05);
-  border: 0.5px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+  --border-ghost: #1c1c1e;
+  --border-main: #424245;
+  --glass-bg: rgba(0, 0, 0, 0.82);
 }
 
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 body {
   margin: 0;
-  font-family: 'Manrope', -apple-system, sans-serif;
   background-color: var(--bg-primary);
   color: var(--text-main);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  line-height: 1.6;
+  line-height: 1.47059;
+  letter-spacing: -0.022em;
 }
 
-/* Telemetry Headlines (Space Grotesk) */
+/* 🍎 Signature Headlines (Ultra-Bold Inter) */
 h1,
 h2,
 h3,
 h4,
 h5,
-.telemetry {
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+.premium-text {
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  color: var(--text-main);
 }
 
 /* The "Obsidian HUD" Glass effect */
@@ -165,6 +147,15 @@ h5,
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent-primary);
+}
+
+/* 🍎 Apple-style Vibrant Gradient Text */
+.apple-gradient {
+  background: linear-gradient(to right, #915aff 0%, #0076f5 50%, #29c7ac 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
 }
 
 /* 🎨 TORTOX SIGNATURE STYLING */

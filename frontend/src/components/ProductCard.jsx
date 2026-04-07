@@ -33,123 +33,125 @@ const ProductCard = ({ product }) => {
                 const slug = product.modal ? product.modal.toLowerCase().replace(/\s+/g, '-') : product.id;
                 navigate(`/products/${slug}`);
             }}
-            whileHover={{ y: -10, boxShadow: '0 30px 60px rgba(0,0,0,0.12)' }}
-            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            whileHover={{ y: -8, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)' }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
             style={{
                 background: '#ffffff',
-                borderRadius: '16px',
-                padding: '24px',
+                borderRadius: '8px',
+                padding: '28px',
                 display: 'flex',
                 flexDirection: 'column',
                 cursor: 'pointer',
                 position: 'relative',
-                transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-                border: '1px solid #f0f0f0',
-                boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
-                minHeight: '420px',
-                overflow: 'hidden'
+                border: '1px solid #f2f2f2',
+                transition: 'all 0.3s ease',
+                width: '100%',
+                boxSizing: 'border-box'
             }}
         >
-            {/* Image Container */}
+            {/* 🏷️ "NEW" BADGE (darkFlash style) */}
+            {product.is_new !== false && (
+                <div style={{
+                    position: 'absolute',
+                    top: '20px',
+                    left: '20px',
+                    backgroundColor: '#000',
+                    color: '#fff',
+                    padding: '4px 14px',
+                    fontSize: '0.8rem',
+                    fontWeight: 900,
+                    borderRadius: '4px',
+                    zIndex: 2,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                }}>
+                    New
+                </div>
+            )}
+
+            {/* 🖼️ Image Section */}
             <div style={{
                 width: '100%',
                 aspectRatio: '1/1',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginBottom: '20px',
-                overflow: 'hidden',
-                padding: '5px'
+                marginBottom: '35px',
+                position: 'relative',
+                padding: '10px'
             }}>
                 <img
                     src={finalSrc}
                     alt={product.product_name || product.modal}
                     style={{
-                        maxWidth: '100%',
-                        maxHeight: '100%',
+                        maxWidth: '95%',
+                        maxHeight: '95%',
                         objectFit: 'contain',
-                        transition: 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
-                        transform: isHovered ? 'scale(1.05)' : 'scale(1)'
-                    }}
-                    onError={(e) => {
-                        if (e.target.src !== 'https://via.placeholder.com/600x600?text=TORTOX+HARDWARE') {
-                            e.target.src = 'https://via.placeholder.com/600x600?text=TORTOX+HARDWARE';
-                        }
+                        filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.05))',
+                        transition: 'transform 0.5s ease',
+                        transform: isHovered ? 'scale(1.08)' : 'scale(1)'
                     }}
                 />
             </div>
 
-            {/* Info Section */}
-            <div style={{ textAlign: 'left', width: '100%', padding: '0 5px' }}>
-                <h3 style={{
-                    fontSize: '1.25rem',
-                    fontWeight: 800,
-                    color: '#000',
-                    margin: '0 0 4px 0',
-                    lineHeight: 1.2,
-                    letterSpacing: '-0.3px'
+            {/* 📝 Technical Info */}
+            <div style={{ marginTop: 'auto' }}>
+                <h3 style={{ 
+                    fontSize: '1.25rem', 
+                    fontWeight: 900, 
+                    color: '#1d1d1f', 
+                    marginBottom: '6px',
+                    lineHeight: '1.2',
+                    textTransform: 'uppercase',
+                    wordBreak: 'break-word'
                 }}>
-                    {product.product_name || product.modal || `Unit ${product.id}`}
+                    {product.product_name || product.modal}
                 </h3>
-
-                <div style={{
-                    fontSize: '0.85rem',
-                    color: '#71717a',
-                    fontWeight: 600,
-                    opacity: 0.8
+                
+                <p style={{ 
+                    fontSize: '0.85rem', 
+                    color: '#86868b', 
+                    fontWeight: 500,
+                    marginBottom: '20px'
                 }}>
-                    {mb || 'ATX'} / {dims || 'Standard Unit'}
-                </div>
-            </div>
+                    {mb || 'ATX'} / {dims || 'Technical Dimension'}
+                </p>
 
-            {/* Dynamic Color Indicator Dots */}
-            <div style={{
-                marginTop: 'auto',
-                display: 'flex',
-                justifyContent: 'flex-end',
-                gap: '8px',
-                paddingBottom: '5px'
-            }}>
-                {product.variant_data && product.variant_data.length > 0 ? (
-                    // Deduplicate colors for the card dots
-                    [...new Map(product.variant_data.map(v => [v.color, v])).values()].map((v, idx) => {
-                        const isThisSelected = (selectedImage === v.image) || (!selectedImage && idx === 0);
-                        const displayColor = v.color?.toLowerCase().trim();
-                        return (
-                            <div
-                                key={idx}
-                                onMouseEnter={() => v.image && setSelectedImage(v.image)}
-                                onMouseLeave={() => setSelectedImage(null)}
-                                style={{
-                                    width: '20px',
-                                    height: '20px',
-                                    borderRadius: '50%',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    border: isThisSelected ? '1.5px solid #ff7e3b' : '1.5px solid transparent',
-                                    padding: '2px',
-                                    transition: 'all 0.2s ease',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                <div style={{
-                                    width: '100%',
-                                    height: '100%',
-                                    borderRadius: '50%',
-                                    background: displayColor === 'black' ? '#000' : (displayColor === 'white' ? '#fff' : displayColor),
-                                    border: displayColor === 'white' ? '1px solid #e1e1e1' : 'none'
-                                }} />
-                            </div>
-                        );
-                    })
-                ) : (
-                    <div style={{
-                        width: '20px', height: '20px', borderRadius: '50%', border: '1.5px solid #ff7e3b', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px'
-                    }}>
-                        <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: '#000' }} />
-                    </div>
-                )}
+                {/* 🎨 Color Variants (Bottom Right) */}
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    gap: '10px',
+                    alignItems: 'center'
+                }}>
+                    {product.variant_data && product.variant_data.length > 0 ? (
+                        [...new Map(product.variant_data.map(v => [v.color, v])).values()].map((v, idx) => {
+                            const isThisSelected = (selectedImage === v.image) || (!selectedImage && idx === 0);
+                            const displayColor = v.color?.toLowerCase().trim();
+                            return (
+                                <div
+                                    key={idx}
+                                    onMouseEnter={() => v.image && setSelectedImage(v.image)}
+                                    onMouseLeave={() => setSelectedImage(null)}
+                                    style={{
+                                        width: '18px',
+                                        height: '18px',
+                                        borderRadius: '50%',
+                                        background: displayColor === 'black' ? '#000' : (displayColor === 'white' ? '#fff' : displayColor),
+                                        border: displayColor === 'white' ? '1px solid #dcdcdc' : (isThisSelected ? '2px solid #ff6b00' : '1px solid #eeeeee'),
+                                        cursor: 'pointer',
+                                        transition: 'transform 0.2s ease',
+                                        transform: isHovered && isThisSelected ? 'scale(1.2)' : 'scale(1)',
+                                        outline: isThisSelected ? '2px solid #ff6b00' : 'none',
+                                        outlineOffset: '2px'
+                                    }}
+                                />
+                            );
+                        })
+                    ) : (
+                        <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: '#000', border: '1px solid #eee' }} />
+                    )}
+                </div>
             </div>
         </motion.div>
     );

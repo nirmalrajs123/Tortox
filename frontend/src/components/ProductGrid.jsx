@@ -46,11 +46,11 @@ const ProductGrid = () => {
                 transition={{ duration: 0.6 }}
                 style={{ marginBottom: '4.5rem', textAlign: 'center' }}
             >
-                <h2 style={{ fontSize: '2.5rem', fontWeight: 900, color: '#1d1d1f', margin: 0, textTransform: 'uppercase', letterSpacing: '-0.5px' }}>
+                <h2 style={{ fontSize: '3rem' }}>
                     Hot Products
                 </h2>
-                <div style={{ width: '40px', height: '4px', background: '#e11919', margin: '20px auto' }} />
-                <p style={{ color: '#86868b', fontSize: '1.1rem', marginTop: '8px', maxWidth: '600px', margin: '0 auto' }}>
+                <div style={{ width: '40px', height: '4px', background: 'var(--accent-primary)', margin: '20px auto' }} />
+                <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem', marginTop: '8px', maxWidth: '600px', margin: '0 auto' }}>
                     Tailored performance components engineered for extreme ultimate workflow setups.
                 </p>
             </motion.div>
@@ -72,7 +72,7 @@ const ProductGrid = () => {
                     ))}
                 </motion.div>
             ) : (
-                <div style={{ textAlign: 'center', padding: '4rem', color: '#999', fontSize: '0.9rem', border: '1px dashed #eee', borderRadius: '12px' }}>
+                <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)', fontSize: '0.9rem', border: '1px dashed var(--text-muted)', borderRadius: '12px' }}>
                     NO UNITS CURRENTLY PROMOTED
                 </div>
             )}
