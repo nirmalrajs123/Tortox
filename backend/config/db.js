@@ -201,8 +201,36 @@ const initializeDatabase = async () => {
         );
     `;
 
-    try {
+    // 14. Create home_banner Table
+    const createHomeBannerQuery = `
+        CREATE TABLE IF NOT EXISTS home_banner (
+            id SERIAL PRIMARY KEY,
+            banner_text TEXT,
+            banner_options JSONB DEFAULT '[]',
+            media_path TEXT,
+            media_type TEXT DEFAULT 'image',
+            subtitle TEXT,
+            description TEXT,
+            button_text TEXT,
+            title_prefix TEXT,
+            title_highlight TEXT,
+            title_suffix TEXT
+        );
+    `;
 
+    const alterHomeBannerQuery = `
+        ALTER TABLE home_banner ADD COLUMN IF NOT EXISTS banner_options JSONB DEFAULT '[]';
+        ALTER TABLE home_banner ADD COLUMN IF NOT EXISTS subtitle TEXT;
+        ALTER TABLE home_banner ADD COLUMN IF NOT EXISTS description TEXT;
+        ALTER TABLE home_banner ADD COLUMN IF NOT EXISTS button_text TEXT;
+        ALTER TABLE home_banner ADD COLUMN IF NOT EXISTS title_prefix TEXT;
+        ALTER TABLE home_banner ADD COLUMN IF NOT EXISTS title_highlight TEXT;
+        ALTER TABLE home_banner ADD COLUMN IF NOT EXISTS title_suffix TEXT;
+    `;
+
+    try {
+        await pool.query(createHomeBannerQuery);
+        await pool.query(alterHomeBannerQuery);
         await pool.query(createProductsQuery);
         await pool.query(alterTableQuery);
         await pool.query(`ALTER TABLE spec_label ADD COLUMN IF NOT EXISTS spec_options TEXT;`);

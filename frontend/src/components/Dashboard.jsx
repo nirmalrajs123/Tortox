@@ -17,7 +17,8 @@ import {
     Flame,
     Sparkles,
     Eye,
-    EyeOff
+    EyeOff,
+    Image as ImageIcon
 } from 'lucide-react';
 import { productService } from '../services/product'; // ➕ Use productService
 import TortoxLogo from './TortoxLogo';
@@ -27,6 +28,7 @@ import SpecificationsSettings from './dashboard/SpecificationsSettings';
 
 import FilterSettings from './dashboard/FilterSettings';
 import PartnerSettings from './dashboard/PartnerSettings';
+import BannerSettings from './dashboard/BannerSettings';
 import { Moon, Sun } from 'lucide-react';
 
 
@@ -164,6 +166,7 @@ const Dashboard = () => {
                         {[
                             { icon: <LayoutDashboard size={22} />, view: 'dashboard' },
                             { icon: <ShoppingBag size={22} />, view: 'products' },
+                            { icon: <ImageIcon size={22} />, view: 'banners' },
                             { icon: <Users size={22} />, view: 'users' },
                             { icon: <Settings size={22} />, view: 'settings' }
                         ].map((item) => (
@@ -171,7 +174,7 @@ const Dashboard = () => {
                                 key={item.view}
                                 whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.9 }}
-                                onClick={() => { if (['dashboard', 'products', 'settings', 'users'].includes(item.view)) setCurrentView(item.view); }}
+                                onClick={() => { if (['dashboard', 'products', 'settings', 'users', 'banners'].includes(item.view)) setCurrentView(item.view); }}
                                 style={{
                                     padding: '12px', borderRadius: '12px',
                                     background: currentView === item.view ? '#f8fafc' : 'transparent',
@@ -286,7 +289,7 @@ const Dashboard = () => {
                                                                 style={{ borderBottom: '1px solid var(--border-ghost)' }}
                                                             >
                                                                 <td style={{ padding: '20px 24px', color: 'var(--accent-primary)', fontWeight: 700, fontSize: '0.9rem' }}>#{prod.id}</td>
-                                                                <td style={{ padding: '20px 24px', fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>{prod.modal || prod.name || 'N/A'}</td>
+                                                                <td style={{ padding: '20px 24px', fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>{prod.modal || prod.product_name || 'N/A'}</td>
                                                                 <td style={{ padding: '12px 24px' }}>
                                                                     <div style={{ width: '50px', height: '50px', borderRadius: '8px', overflow: 'hidden', background: '#f8fafc', border: '1px solid #f1f5f9' }}>
                                                                         {prod.image ? (
@@ -402,6 +405,16 @@ const Dashboard = () => {
 
                                 {currentView === 'users' && (
                                     <PartnerSettings />
+                                )}
+
+                                {currentView === 'banners' && (
+                                    <div style={{ width: '100%' }}>
+                                        <header style={{ marginBottom: '3rem' }}>
+                                            <h1 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '8px' }}>Visual Assets</h1>
+                                            <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>Homepage banner management and media relays</p>
+                                        </header>
+                                        <BannerSettings />
+                                    </div>
                                 )}
                             </div>
                         </main>

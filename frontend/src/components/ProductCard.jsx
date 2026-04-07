@@ -33,34 +33,23 @@ const ProductCard = ({ product }) => {
                 const slug = product.modal ? product.modal.toLowerCase().replace(/\s+/g, '-') : product.id;
                 navigate(`/products/${slug}`);
             }}
-            whileHover={{ y: -5, boxShadow: '0 20px 40px rgba(0,0,0,0.06)' }}
-            transition={{ duration: 0.3 }}
+            whileHover={{ y: -12, boxShadow: '0 40px 100px rgba(0,0,0,0.15)' }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             style={{
                 background: '#ffffff',
-                borderRadius: '8px',
-                padding: '20px',
+                borderRadius: '32px',
+                padding: '30px',
                 display: 'flex',
                 flexDirection: 'column',
                 cursor: 'pointer',
                 position: 'relative',
-                transition: 'all 0.3s ease',
-                border: '1px solid #f2f2f2',
-                minHeight: '420px'
+                transition: 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+                border: '1px solid #f0f0f0',
+                boxShadow: '0 15px 45px rgba(0,0,0,0.08)',
+                minHeight: '440px',
+                overflow: 'hidden'
             }}
         >
-            {/* Dynamic Badge */}
-            {(product.is_hot || product.is_new) && (
-                <span style={{
-                    position: 'absolute', top: '15px', left: '15px',
-                    background: product.is_hot ? '#e11919' : '#000',
-                    color: '#fff', padding: '4px 12px',
-                    fontSize: '0.7rem', fontWeight: 900, zIndex: 2,
-                    textTransform: 'uppercase', letterSpacing: '2px'
-                }}>
-                    {product.is_hot ? 'Hot' : 'New'}
-                </span>
-            )}
-
             {/* Image Container */}
             <div style={{
                 width: '100%',
@@ -68,18 +57,19 @@ const ProductCard = ({ product }) => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginBottom: '40px',
-                overflow: 'hidden'
+                marginBottom: '25px',
+                overflow: 'hidden',
+                padding: '10px'
             }}>
                 <img
                     src={finalSrc}
-                    alt={product.product_name}
+                    alt={product.product_name || product.modal}
                     style={{
-                        width: '90%',
-                        height: '90%',
+                        maxWidth: '100%',
+                        maxHeight: '100%',
                         objectFit: 'contain',
-                        transition: 'transform 0.5s ease',
-                        transform: isHovered ? 'scale(1.05)' : 'scale(1)'
+                        transition: 'transform 0.6s cubic-bezier(0.25, 1, 0.5, 1)',
+                        transform: isHovered ? 'scale(1.08)' : 'scale(1)'
                     }}
                     onError={(e) => {
                         if (e.target.src !== 'https://via.placeholder.com/600x600?text=TORTOX+HARDWARE') {
@@ -92,23 +82,22 @@ const ProductCard = ({ product }) => {
             {/* Info Section */}
             <div style={{ textAlign: 'left', width: '100%' }}>
                 <h3 style={{
-                    fontSize: '1.2rem',
-                    fontWeight: 900,
-                    color: '#000',
-                    margin: '0 0 10px 0',
-                    letterSpacing: '0.5px',
-                    textTransform: 'uppercase'
+                    fontSize: '1.4rem',
+                    fontWeight: 700,
+                    color: '#1d1d1f',
+                    margin: '0 0 6px 0',
+                    lineHeight: 1.2
                 }}>
-                    {product.modal || product.product_name || 'Unnamed Unit'}
+                    {product.product_name || product.modal || `Unit ${product.id}`} {product.category_name === 'PC CASES' ? 'PC Case' : ''}
                 </h3>
 
                 <div style={{
-                    fontSize: '0.85rem',
+                    fontSize: '0.9rem',
                     color: '#86868b',
-                    fontWeight: 600,
-                    marginBottom: '20px'
+                    fontWeight: 500,
+                    letterSpacing: '0.1px'
                 }}>
-                    {mb || 'ATX'} / {dims || product.product_name || 'Standard Unit'}
+                    {mb || 'ATX'} / {dims || 'Standard Unit'}
                 </div>
             </div>
 
@@ -120,33 +109,45 @@ const ProductCard = ({ product }) => {
                 gap: '8px'
             }}>
                 {product.variant_data && product.variant_data.length > 0 ? (
-                    product.variant_data.map((v, idx) => (
-                        <div
-                            key={idx}
-                            title={v.color.toUpperCase()}
-                            onMouseEnter={() => v.image && setSelectedImage(v.image)}
-                            onMouseLeave={() => setSelectedImage(null)}
-                            style={{
-                                width: '16px',
-                                height: '16px',
-                                borderRadius: '50%',
-                                background: v.color.toLowerCase().trim() === 'black' ? '#000' : (v.color.toLowerCase().trim() === 'white' ? '#fff' : v.color),
-                                border: v.color.toLowerCase().trim() === 'white' ? '1.5px solid #dcdcdc' : '1px solid rgba(0,0,0,0.1)',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                                transform: selectedImage === v.image ? 'scale(1.2)' : 'scale(1)',
-                                zIndex: 5
-                            }}
-                        />
-                    ))
+                    // Deduplicate colors for the card dots using variant_data from backend
+                    [...new Map(product.variant_data.map(v => [v.color, v])).values()].map((v, idx) => {
+                        const isThisSelected = (selectedImage === v.image) || (!selectedImage && idx === 0);
+                        const displayColor = v.color?.toLowerCase().trim();
+                        return (
+                            <div
+                                key={idx}
+                                onMouseEnter={() => v.image && setSelectedImage(v.image)}
+                                onMouseLeave={() => setSelectedImage(null)}
+                                style={{
+                                    width: '24px',
+                                    height: '24px',
+                                    borderRadius: '50%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    border: isThisSelected ? '2px solid #ff7e3b' : '2px solid transparent',
+                                    padding: '2px',
+                                    transition: 'all 0.2s ease',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <div style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    borderRadius: '50%',
+                                    background: displayColor === 'black' ? '#000' : (displayColor === 'white' ? '#fff' : displayColor),
+                                    border: displayColor === 'white' ? '1px solid #e5e5e5' : 'none',
+                                    boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.1)'
+                                }} />
+                            </div>
+                        );
+                    })
                 ) : (
                     <div style={{
-                        width: '16px',
-                        height: '16px',
-                        borderRadius: '50%',
-                        background: '#040404',
-                        border: '1px solid rgba(0,0,0,0.1)'
-                    }} />
+                        width: '24px', height: '24px', borderRadius: '50%', border: '2px solid #ff7e3b', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px'
+                    }}>
+                        <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: '#000' }} />
+                    </div>
                 )}
             </div>
         </motion.div>

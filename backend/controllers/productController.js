@@ -109,8 +109,11 @@ const getProductById = async (req, res) => {
         const serverHost = `${req.protocol}://${req.get('host')}`;
 
         // Normalize paths from prod_details columns
-        if (prod.image) prod.image = prod.image.startsWith('http') ? prod.image : `${serverHost}${prod.image.startsWith('/') ? '' : '/'}${prod.image.trim()}`;
-        if (prod.hover_image) prod.hover_image = prod.hover_image.startsWith('http') ? prod.hover_image : `${serverHost}${prod.hover_image.startsWith('/') ? '' : '/'}${prod.hover_image.trim()}`;
+        const normalizeMain = (p) => p && !p.startsWith('http') ? `${serverHost}${p.startsWith('/') ? '' : '/'}${p.trim()}` : p;
+        if (prod.image) prod.image = normalizeMain(prod.image);
+        if (prod.hover_image) prod.hover_image = normalizeMain(prod.hover_image);
+        if (prod.desktop_banner) prod.desktop_banner = normalizeMain(prod.desktop_banner);
+        if (prod.mobile_banner) prod.mobile_banner = normalizeMain(prod.mobile_banner);
 
         // 📸 Fetch ALL images from product_images (including hover paths)
         const imagesRes = await pool.query('SELECT image_path, hover_path, image_type FROM product_images WHERE product_id = $1', [prod.id]);
@@ -134,9 +137,9 @@ const getProductById = async (req, res) => {
         }
 
         // 📐 Global Specifications (variant_id = 0) with Fallback to first variant if empty
-        let specRes = await pool.query('SELECT specification_name as label, specification_value as value FROM specifications WHERE product_id = $1 AND (variant_id = 0 OR variant_id IS NULL) AND specification_deleted = false ORDER BY order_id ASC', [prod.id]);
+        let specRes = await pool.query('SELECT specification_name as label, specification_value as value, spec_label_id FROM specifications WHERE product_id = $1 AND (variant_id = 0 OR variant_id IS NULL) AND specification_deleted = false ORDER BY order_id ASC', [prod.id]);
         if (specRes.rows.length === 0) {
-            specRes = await pool.query('SELECT specification_name as label, specification_value as value FROM specifications WHERE product_id = $1 AND specification_deleted = false ORDER BY variant_id ASC, order_id ASC LIMIT 15', [prod.id]);
+            specRes = await pool.query('SELECT specification_name as label, specification_value as value, spec_label_id FROM specifications WHERE product_id = $1 AND specification_deleted = false ORDER BY variant_id ASC, order_id ASC LIMIT 15', [prod.id]);
         }
         prod.specifications = specRes.rows;
 
@@ -189,6 +192,7 @@ const getProductById = async (req, res) => {
         }
         prod.variants = variants;
 
+        // 📸 Main Product Secondary Images (Gallery)
         const prodImgRes = await pool.query('SELECT * FROM product_images WHERE product_id = $1 AND image_type = \'gallery\' AND image_path IS NOT NULL AND image_path != \'\' AND image_path != \'/\' ORDER BY id ASC', [prod.id]);
         const normalize = (p) => {
             if (!p) return null;
@@ -203,6 +207,21 @@ const getProductById = async (req, res) => {
             hover_path: normalize(img.hover_path),
             raw_path: img.image_path,
             raw_hover: img.hover_path
+        }));
+
+        // 📂 Downloads (Technical & General)
+        const downloadRes = await pool.query('SELECT * FROM additional_downloads WHERE product_id = $1 AND is_deleted = false ORDER BY id ASC', [prod.id]);
+        prod.downloads = downloadRes.rows.filter(d => d.download_type === 'general').map(d => ({
+            id: d.id,
+            download_path: normalize(d.download_path),
+            download_label: d.download_label,
+            preview: d.download_path // raw path for frontend
+        }));
+        prod.technical_manuals = downloadRes.rows.filter(d => d.download_type === 'technical').map(d => ({
+            id: d.id,
+            download_path: normalize(d.download_path),
+            download_label: d.download_label,
+            preview: d.download_path
         }));
 
         res.status(200).json({ success: true, data: prod });
@@ -410,6 +429,42 @@ const addProduct = async (req, res) => {
             await client.query(`INSERT INTO product_images (product_id, image_path) VALUES ($1, $2)`, [product_id, imgPath]);
         }
 
+        // 8. Add Product Manuals & Banners
+        const dBanner = req.files.find(f => f.fieldname === 'desktop_banner');
+        const mBanner = req.files.find(f => f.fieldname === 'mobile_banner');
+
+        if (dBanner || mBanner) {
+            await client.query(
+                `UPDATE product_details SET desktop_banner = $1, mobile_banner = $2 WHERE id = $3`,
+                [
+                    dBanner ? `/uploads/${dBanner.filename}` : null,
+                    mBanner ? `/uploads/${mBanner.filename}` : null,
+                    product_id
+                ]
+            );
+        }
+
+        // --- 📂 Downloads Sync ---
+        const handleDownloadsSync = async (configKey, filePrefix, type) => {
+            const config = typeof req.body[configKey] === 'string' ? JSON.parse(req.body[configKey]) : req.body[configKey];
+            if (!config) return;
+            for (let i = 0; i < config.length; i++) {
+                const dl = config[i];
+                if (dl.isNew) {
+                    const file = req.files.find(f => f.fieldname === `${filePrefix}_${i}`);
+                    if (file) {
+                        await client.query(
+                            `INSERT INTO additional_downloads (product_id, download_path, download_label, download_type) VALUES ($1, $2, $3, $4)`,
+                            [product_id, `/uploads/${file.filename}`, dl.label, type]
+                        );
+                    }
+                }
+            }
+        };
+
+        await handleDownloadsSync('downloads_config', 'download_file', 'general');
+        await handleDownloadsSync('manuals_config', 'manual_file', 'technical');
+
         await client.query('COMMIT');
         res.status(201).json({ success: true, message: 'Product added!', data: result.rows[0] });
     } catch (error) {
@@ -444,10 +499,10 @@ const updateProduct = async (req, res) => {
                 installed_psu=$11, price=$12
              WHERE id = $13`,
             [
-                category_id || null, modal || null, modal_name || null, product_name || null,
-                product_description || null, product_features || null, mb_compat || null,
-                cooler_compat || null, panel_type || null, installed_fans || null,
-                installed_psu || null, price || 0, id
+                category_id || null, modal || null, bodyArgs.modal_name || null, bodyArgs.product_name || null,
+                bodyArgs.product_description || null, bodyArgs.product_features || null, bodyArgs.mb_compat || null,
+                bodyArgs.cooler_compat || null, bodyArgs.panel_type || null, bodyArgs.installed_fans || null,
+                bodyArgs.installed_psu || null, bodyArgs.price || 0, id
             ]
         );
 
@@ -470,12 +525,62 @@ const updateProduct = async (req, res) => {
             await client.query(`DELETE FROM product_images WHERE product_id = $1 AND image_type = 'hover'`, [id]);
             await client.query(`INSERT INTO product_images (product_id, hover_path, image_type) VALUES ($1, $2, 'hover')`, [id, `/uploads/${hoverImageFile.filename}`]);
         } else if (bodyArgs.existing_hover_image) {
-            const path = bodyArgs.existing_hover_image.replace(/^https?:\/\/[^\/]+/i, '').trim();
-            if (path && path !== '/') {
+            const hPath = bodyArgs.existing_hover_image.replace(/^https?:\/\/[^\/]+/i, '').trim();
+            if (hPath && hPath !== '/') {
                 await client.query(`DELETE FROM product_images WHERE product_id = $1 AND image_type = 'hover'`, [id]);
-                await client.query(`INSERT INTO product_images (product_id, hover_path, image_type) VALUES ($1, $2, 'hover')`, [id, path]);
+                await client.query(`INSERT INTO product_images (product_id, hover_path, image_type) VALUES ($1, $2, 'hover')`, [id, hPath]);
             }
         }
+
+        // 📔 Update Downloadables (Banners)
+        const deskBannerFile = req.files.find(f => f.fieldname === 'desktop_banner');
+        const mobBannerFile = req.files.find(f => f.fieldname === 'mobile_banner');
+
+        let dPath = null;
+        if (deskBannerFile) dPath = `/uploads/${deskBannerFile.filename}`;
+        else if (bodyArgs.remove_desktop_banner === 'true') dPath = null;
+        else if (bodyArgs.existing_desktop_banner) dPath = bodyArgs.existing_desktop_banner.replace(/^https?:\/\/[^\/]+/i, '');
+
+        let mPath = null;
+        if (mobBannerFile) mPath = `/uploads/${mobBannerFile.filename}`;
+        else if (bodyArgs.remove_mobile_banner === 'true') mPath = null;
+        else if (bodyArgs.existing_mobile_banner) mPath = bodyArgs.existing_mobile_banner.replace(/^https?:\/\/[^\/]+/i, '');
+
+        await client.query(
+            `UPDATE product_details SET desktop_banner = $1, mobile_banner = $2 WHERE id = $3`,
+            [dPath, mPath, id]
+        );
+
+        // --- 📂 Downloads Synchronization (Surgical) ---
+        const syncDownloads = async (configKey, filePrefix, type) => {
+            const config = typeof bodyArgs[configKey] === 'string' ? JSON.parse(bodyArgs[configKey]) : bodyArgs[configKey];
+            if (!config) return;
+
+            // Soft-delete current for this type if not provided in config
+            await client.query(`UPDATE additional_downloads SET is_deleted = true WHERE product_id = $1 AND download_type = $2`, [id, type]);
+
+            for (let i = 0; i < config.length; i++) {
+                const dl = config[i];
+                if (dl.isNew) {
+                    const file = req.files.find(f => f.fieldname === `${filePrefix}_${i}`);
+                    if (file) {
+                        await client.query(
+                            `INSERT INTO additional_downloads (product_id, download_path, download_label, download_type) VALUES ($1, $2, $3, $4)`,
+                            [id, `/uploads/${file.filename}`, dl.label, type]
+                        );
+                    }
+                } else if (dl.path) {
+                    // Reactive existing
+                    await client.query(
+                        `UPDATE additional_downloads SET is_deleted = false, download_label = $1 WHERE product_id = $2 AND download_path = $3 AND download_type = $4`,
+                        [dl.label, id, dl.path, type]
+                    );
+                }
+            }
+        };
+
+        await syncDownloads('downloads_config', 'download_file', 'general');
+        await syncDownloads('manuals_config', 'manual_file', 'technical');
 
         // 🛠️ SURGICAL UPDATES TO PREVENT "FILL BUG" (Soft-delete batch reset)
         await client.query(`UPDATE specifications SET specification_deleted = true WHERE product_id = $1 AND variant_id = 0`, [id]);
@@ -678,7 +783,7 @@ const getFilterLabels = async (req, res) => {
     const { category_id } = req.params;
     console.log("FETCHING LABELS FOR CATEGORY:", category_id);
     try {
-        const result = await pool.query('SELECT * FROM filter_labels WHERE category_id = $1 AND is_deleted = false ORDER BY id ASC', [category_id]);
+        const result = await pool.query('SELECT * FROM filter_labels WHERE category_id = $1 AND is_deleted = false ORDER BY order_id ASC, id ASC', [category_id]);
         console.log("LABELS FOUND:", result.rows.length);
         res.status(200).json({ success: true, data: result.rows });
     } catch (error) {
@@ -694,8 +799,8 @@ const addFilterLabel = async (req, res) => {
     try {
         // 🛡️ Atomic Manifest Adoption (Industrial Upsert)
         const result = await pool.query(`
-            INSERT INTO filter_labels (category_id, filter_label) 
-            VALUES ($1, $2)
+            INSERT INTO filter_labels (category_id, filter_label, order_id) 
+            VALUES ($1, $2, (SELECT COALESCE(MAX(order_id), 0) + 1 FROM filter_labels WHERE category_id = $1))
             ON CONFLICT (category_id, LOWER(filter_label)) 
             DO UPDATE SET is_deleted = false, filter_label = EXCLUDED.filter_label
             RETURNING *`,
@@ -722,7 +827,7 @@ const deleteFilterLabel = async (req, res) => {
 const getFilterValues = async (req, res) => {
     const { label_id } = req.params;
     try {
-        const result = await pool.query('SELECT * FROM filter_values WHERE filter_label_id = $1 AND is_deleted = false ORDER BY id ASC', [label_id]);
+        const result = await pool.query('SELECT * FROM filter_values WHERE filter_label_id = $1 AND is_deleted = false ORDER BY order_id ASC, id ASC', [label_id]);
         res.status(200).json({ success: true, data: result.rows });
     } catch (error) {
         res.status(500).json({ success: false, message: "Database Error: " + error.message });
@@ -759,7 +864,9 @@ const addFilterValue = async (req, res) => {
 
         // 3. Atomic Injection
         const result = await pool.query(
-            `INSERT INTO filter_values (filter_label_id, filter_value) VALUES ($1, $2) RETURNING *`,
+            `INSERT INTO filter_values (filter_label_id, filter_value, order_id) 
+             VALUES ($1, $2, (SELECT COALESCE(MAX(order_id), 0) + 1 FROM filter_values WHERE filter_label_id = $1)) 
+             RETURNING *`,
             [filter_label_id, filter_value]
         );
         res.status(201).json({ success: true, data: result.rows[0] });
@@ -772,11 +879,11 @@ const addFilterValue = async (req, res) => {
 const getFilterConfig = async (req, res) => {
     const { category_id } = req.params;
     try {
-        const labelsRes = await pool.query('SELECT * FROM filter_labels WHERE category_id = $1 AND is_deleted = false ORDER BY id ASC', [category_id]);
+        const labelsRes = await pool.query('SELECT * FROM filter_labels WHERE category_id = $1 AND is_deleted = false ORDER BY order_id ASC, id ASC', [category_id]);
 
         const labels = labelsRes.rows;
         for (let label of labels) {
-            const valuesRes = await pool.query('SELECT id, filter_value FROM filter_values WHERE filter_label_id = $1 AND is_deleted = false ORDER BY id ASC', [label.id]);
+            const valuesRes = await pool.query('SELECT id, filter_value FROM filter_values WHERE filter_label_id = $1 AND is_deleted = false ORDER BY order_id ASC, id ASC', [label.id]);
             label.values = valuesRes.rows;
         }
 
@@ -829,8 +936,8 @@ const saveFullFilter = async (req, res) => {
 
         // 1. Atomic Manifest Adoption (Industrial Upsert)
         const upsertRes = await client.query(`
-            INSERT INTO filter_labels (category_id, filter_label) 
-            VALUES ($1, $2)
+            INSERT INTO filter_labels (category_id, filter_label, order_id) 
+            VALUES ($1, $2, (SELECT COALESCE(MAX(order_id), 0) + 1 FROM filter_labels WHERE category_id = $1))
             ON CONFLICT (category_id, LOWER(filter_label)) 
             DO UPDATE SET is_deleted = false, filter_label = EXCLUDED.filter_label
             RETURNING id`,
@@ -855,7 +962,8 @@ const saveFullFilter = async (req, res) => {
                 await client.query('UPDATE filter_values SET is_deleted = false, filter_value = $1 WHERE id = $2', [val, valCheck.rows[0].id]);
             } else {
                 await client.query(
-                    `INSERT INTO filter_values (filter_label_id, filter_value) VALUES ($1, $2)`,
+                    `INSERT INTO filter_values (filter_label_id, filter_value, order_id) 
+                     VALUES ($1, $2, (SELECT COALESCE(MAX(order_id), 0) + 1 FROM filter_values WHERE filter_label_id = $1))`,
                     [labelId, val]
                 );
             }
@@ -933,6 +1041,48 @@ const toggleProductActive = async (req, res) => {
     }
 };
 
+const updateFilterLabelOrder = async (req, res) => {
+    const { order } = req.body;
+    if (!Array.isArray(order)) return res.status(400).json({ success: false, message: 'Invalid order data' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        for (const item of order) {
+            await client.query('UPDATE filter_labels SET order_id = $1 WHERE id = $2', [item.order_id, item.id]);
+        }
+        await client.query('COMMIT');
+        res.status(200).json({ success: true, message: 'Order updated successfully' });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error("REORDER ERROR:", error);
+        res.status(500).json({ success: false, message: "Database Error: " + error.message });
+    } finally {
+        client.release();
+    }
+};
+
+const updateFilterValueOrder = async (req, res) => {
+    const { order } = req.body;
+    if (!Array.isArray(order)) return res.status(400).json({ success: false, message: 'Invalid order data' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        for (const item of order) {
+            await client.query('UPDATE filter_values SET order_id = $1 WHERE id = $2', [item.order_id, item.id]);
+        }
+        await client.query('COMMIT');
+        res.status(200).json({ success: true, message: 'Order updated successfully' });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error("REORDER VALUES ERROR:", error);
+        res.status(500).json({ success: false, message: "Database Error: " + error.message });
+    } finally {
+        client.release();
+    }
+};
+
 module.exports = {
     getProducts,
     getProductById,
@@ -953,6 +1103,8 @@ module.exports = {
     saveFullFilter,
     updateFilterLabel,
     updateFilterValue,
+    updateFilterLabelOrder,
+    updateFilterValueOrder,
     toggleProductHot,
     toggleProductNew,
     toggleProductActive

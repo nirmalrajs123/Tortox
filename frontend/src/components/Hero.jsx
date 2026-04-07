@@ -1,53 +1,81 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-
-const slides = [
-    {
-        image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=1920',
-        subtitle: 'NEW ARRIVAL: DLX21 MESH',
-        titlePrefix: 'FLY TO ',
-        titleHighlight: 'UNLIMITED',
-        titleSuffix: ' PERFORMANCE',
-        desc: 'Engineered for high-end airflow without compromising design aesthetics. darkFlash brings case crafting to a whole new dimension.',
-        btnText: 'Explore Products'
-    },
-    {
-        image: 'https://images.unsplash.com/photo-1591488320449-011701bb6704?auto=format&fit=crop&q=80&w=1920',
-        subtitle: 'LIQUID COOLING SERIES',
-        titlePrefix: 'EXTREME ',
-        titleHighlight: 'THERMAL',
-        titleSuffix: ' SOLUTIONS',
-        desc: 'Maximum cooling efficiency designed with premium copper base for extreme overclocking thermal capabilities.',
-        btnText: 'View Coolers'
-    },
-    {
-        image: 'https://images.unsplash.com/photo-1587202371785-5b1240801f0a?auto=format&fit=crop&q=80&w=1920',
-        subtitle: 'ARGB FANS PACK',
-        titlePrefix: 'MODULAR ',
-        titleHighlight: 'AESTHETIC',
-        titleSuffix: ' LIGHTING',
-        desc: 'Addressable RGB lights config layouts setup perfectly balanced speed sound airflow triggers setups correctly.',
-        btnText: 'Shop ARGB'
-    }
-];
+import { bannerService } from '../services/banner';
 
 const Hero = () => {
+    const [slides, setSlides] = useState([]);
     const [currentIndex, setCurrentIndex] = useState(0);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchBanners = async () => {
+            try {
+                const response = await bannerService.getAll();
+                const backendUrl = `http://${window.location.hostname}:5000`; 
+
+                if (response.data && response.data.success && response.data.data.length > 0) {
+                const iframedSlides = response.data.data.map(banner => {
+                        let imageUrl = banner.media_path || '';
+                        if (imageUrl && !imageUrl.startsWith('http')) {
+                            imageUrl = `${backendUrl}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+                        }
+
+                        return {
+                            image: imageUrl,
+                            title: banner.banner_text || 'Premium Gaming Gear',
+                            subtitle: banner.subtitle,
+                            description: banner.description,
+                            type: banner.media_type || 'image'
+                        };
+                    });
+                    setSlides(iframedSlides);
+                } else {
+                    setSlides([]); 
+                }
+            } catch (error) {
+                console.error('Error fetching banners:', error);
+                setSlides([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchBanners();
+    }, []);
+
+    const nextSlide = useCallback(() => {
+        if (slides.length === 0) return;
+        setCurrentIndex((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
+    }, [slides]);
 
     const prevSlide = () => {
+        if (slides.length === 0) return;
         setCurrentIndex((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
     };
 
-    const nextSlide = () => {
-        setCurrentIndex((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
-    };
-
-    // Autoplay
+    // Auto-scroll (Autoplay every 5 seconds)
     useEffect(() => {
-        const interval = setInterval(nextSlide, 6000);
+        if (slides.length <= 1) return;
+        const interval = setInterval(nextSlide, 5000);
         return () => clearInterval(interval);
-    }, [currentIndex]);
+    }, [nextSlide, slides.length]);
+
+    if (loading) {
+        return (
+            <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000' }}>
+                <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                    style={{ width: '40px', height: '40px', border: '4px solid #e11919', borderTopColor: 'transparent', borderRadius: '50%' }}
+                />
+            </div>
+        );
+    }
+
+    if (slides.length === 0) return null;
+
+    const currentSlide = slides[currentIndex];
 
     return (
         <section style={{
@@ -58,196 +86,149 @@ const Hero = () => {
             alignItems: 'center',
             textAlign: 'center',
             position: 'relative',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            background: '#000'
         }}>
-            {/* Background Sliding Panels */}
-            <AnimatePresence mode="wait">
+            {/* Background Media with Kenya-Zoom Effect */}
+            <AnimatePresence initial={false}>
                 <motion.div 
                     key={currentIndex}
-                    initial={{ opacity: 0, scale: 1.05 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.8, ease: 'easeInOut' }}
+                    initial={{ scale: 1.15, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 1.8, ease: [0.16, 1, 0.3, 1] }}
                     style={{
                         position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        background: `url("${slides[currentIndex].image}") no-repeat center center/cover`,
-                        zIndex: -1
+                        inset: 0,
+                        zIndex: 0
                     }}
-                />
-            </AnimatePresence>
-
-            {/* White/Radial Overlay */}
-            <div style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                background: 'radial-gradient(ellipse at center, rgba(255, 255, 255, 0.6) 0%, rgba(249, 250, 251, 0.95) 100%)',
-                zIndex: 0
-            }} />
-
-            {/* Text Contents AnimatePresence */}
-            <AnimatePresence mode="wait">
-                <motion.div 
-                    key={currentIndex}
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.6 }}
-                    style={{ zIndex: 10, maxWidth: '830px', padding: '0 20px' }}
                 >
-                    <motion.span 
-                        style={{
-                            display: 'inline-block',
-                            padding: '6px 14px',
-                            background: 'rgba(225, 25, 25, 0.08)',
-                            border: '1px solid rgba(225, 25, 25, 0.2)',
-                            borderRadius: '20px',
-                            color: '#e11919',
-                            fontWeight: 600,
-                            fontSize: '0.8rem',
-                            letterSpacing: '1px',
-                            marginBottom: '1.2rem'
-                        }}
-                    >
-                        {slides[currentIndex].subtitle}
-                    </motion.span>
-                    
-                    <h1 style={{
-                        fontSize: '4.2rem',
-                        fontWeight: 800,
-                        lineHeight: '1.1',
-                        letterSpacing: '-1px',
-                        color: '#111827',
-                        marginBottom: '1.5rem'
-                    }}>
-                        {slides[currentIndex].titlePrefix} 
-                        <span className="glow-text" style={{ 
-                            background: 'linear-gradient(90deg, #e11919, #900a0a)', 
-                            WebkitBackgroundClip: 'text', 
-                            WebkitTextFillColor: 'transparent'
-                        }}>
-                            {slides[currentIndex].titleHighlight}
-                        </span> 
-                        <br /> {slides[currentIndex].titleSuffix}
-                    </h1>
-
-                    <p style={{
-                        color: '#4b5563',
-                        fontSize: '1.1rem',
-                        lineHeight: '1.6',
-                        maxWidth: '600px',
-                        margin: '0 auto 2.5rem',
-                        fontWeight: 400
-                    }}>
-                        {slides[currentIndex].desc}
-                    </p>
-
-                    <motion.div 
-                        style={{ display: 'inline-flex', gap: '1rem' }}
-                        whileHover={{ scale: 1.02 }}
-                        onClick={() => {
-                            const navigate = window.location.pathname === '/' ? null : null; // Just for conceptualizing
-                            window.location.href = '/products';
-                        }}
-                    >
-                        <button style={{
-                            padding: '14px 34px',
-                            background: 'linear-gradient(135deg, #e11919 0%, #900a0a 100%)',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: '30px',
-                            fontSize: '0.95rem',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            boxShadow: '0 8px 24px rgba(225, 25, 25, 0.2)',
-                            transition: 'box-shadow 0.2s'
-                        }}>
-                            {slides[currentIndex].btnText}
-                        </button>
-                    </motion.div>
+                    {currentSlide.type === 'video' ? (
+                        <video 
+                            src={currentSlide.image} 
+                            autoPlay muted loop playsInline
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                    ) : (
+                        <div style={{
+                            width: '100%', height: '100%',
+                            background: `url("${currentSlide.image}") no-repeat center center/cover`
+                        }} />
+                    )}
                 </motion.div>
             </AnimatePresence>
 
-            {/* Manual Controls left/right arrows */}
-            <motion.button 
-                whileHover={{ scale: 1.1, background: 'rgba(0,0,0,0.05)' }}
-                onClick={prevSlide}
-                style={{
-                    position: 'absolute',
-                    left: '30px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'rgba(255,255,255,0.7)',
-                    border: 'none',
-                    borderRadius: '50%',
-                    width: '44px',
-                    height: '44px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#111827',
-                    cursor: 'pointer',
-                    zIndex: 20,
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
-                }}
-            >
-                <ChevronLeft size={24} />
-            </motion.button>
-
-            <motion.button 
-                whileHover={{ scale: 1.1, background: 'rgba(0,0,0,0.05)' }}
-                onClick={nextSlide}
-                style={{
-                    position: 'absolute',
-                    right: '30px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'rgba(255,255,255,0.7)',
-                    border: 'none',
-                    borderRadius: '50%',
-                    width: '44px',
-                    height: '44px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#111827',
-                    cursor: 'pointer',
-                    zIndex: 20,
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
-                }}
-            >
-                <ChevronRight size={24} />
-            </motion.button>
-
-            {/* Navigation Dots Indicator bottom center */}
+            {/* Premium Gradient Overlay */}
             <div style={{
                 position: 'absolute',
-                bottom: '40px',
-                display: 'flex',
-                gap: '8px',
-                zIndex: 20
-            }}>
-                {slides.map((_, index) => (
-                    <div 
-                        key={index}
-                        onClick={() => setCurrentIndex(index)}
-                        style={{
-                            width: currentIndex === index ? '24px' : '8px',
-                            height: '8px',
-                            borderRadius: '4px',
-                            background: currentIndex === index ? '#e11919' : 'rgba(0,0,0,0.15)',
-                            cursor: 'pointer',
-                            transition: 'all 0.3s'
-                        }}
-                    />
-                ))}
-            </div>
+                inset: 0,
+                background: 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.7) 100%)',
+                zIndex: 1
+            }} />
+
+            {/* Cinematic Content */}
+            <AnimatePresence mode="wait">
+                <motion.div 
+                    key={currentIndex}
+                    initial={{ opacity: 0, y: 40 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -40 }}
+                    transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                    style={{ zIndex: 10, maxWidth: '1100px', padding: '0 40px' }}
+                >
+                    {currentSlide.subtitle && (
+                        <motion.p 
+                            initial={{ opacity: 0, letterSpacing: '4px' }}
+                            animate={{ opacity: 1, letterSpacing: '8px' }}
+                            style={{ 
+                                color: 'rgba(255,255,255,0.8)', 
+                                fontSize: '0.85rem', 
+                                fontWeight: 800, 
+                                textTransform: 'uppercase', 
+                                marginBottom: '25px',
+                                letterSpacing: '8px' 
+                            }}
+                        >
+                            {currentSlide.subtitle}
+                        </motion.p>
+                    )}
+
+                    <h1 style={{
+                        fontSize: 'clamp(3rem, 10vw, 7rem)',
+                        fontWeight: 950,
+                        lineHeight: '0.85',
+                        letterSpacing: '-0.05em',
+                        color: '#fff',
+                        textTransform: 'uppercase',
+                        textShadow: '0 20px 80px rgba(0,0,0,0.6)'
+                    }}>
+                        <span style={{ 
+                            background: 'linear-gradient(135deg, #fff 0%, #999 100%)', 
+                            WebkitBackgroundClip: 'text', 
+                            WebkitTextFillColor: 'transparent'
+                        }}>
+                            {currentSlide.title}
+                        </span>
+                    </h1>
+
+                    {currentSlide.description && (
+                        <motion.p 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.2 }}
+                            style={{ 
+                                color: 'rgba(255,255,255,0.6)', 
+                                fontSize: '1.2rem', 
+                                marginTop: '30px',
+                                maxWidth: '700px',
+                                margin: '30px auto 0',
+                                lineHeight: '1.6'
+                            }}
+                        >
+                            {currentSlide.description}
+                        </motion.p>
+                    )}
+                </motion.div>
+            </AnimatePresence>
+
+            {/* Progressive Indicators */}
+            {slides.length > 1 && (
+                <div style={{
+                    position: 'absolute',
+                    bottom: '60px',
+                    display: 'flex',
+                    gap: '15px',
+                    zIndex: 20
+                }}>
+                    {slides.map((_, index) => (
+                        <div 
+                            key={index}
+                            onClick={() => setCurrentIndex(index)}
+                            style={{
+                                width: '40px',
+                                height: '2px',
+                                position: 'relative',
+                                background: 'rgba(255,255,255,0.15)',
+                                cursor: 'pointer',
+                                overflow: 'hidden'
+                            }}
+                        >
+                            {currentIndex === index && (
+                                <motion.div 
+                                    initial={{ x: '-100%' }}
+                                    animate={{ x: '0%' }}
+                                    transition={{ duration: 5, ease: 'linear' }}
+                                    style={{
+                                        position: 'absolute',
+                                        inset: 0,
+                                        background: '#fff'
+                                    }}
+                                />
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
         </section>
     );
 };

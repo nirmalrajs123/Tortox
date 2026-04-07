@@ -72,7 +72,8 @@ const deleteCategory = async (req, res) => {
     console.log(`[STITCH_CAT] DELETE_PULSE: ID=${id}`);
 
     try {
-        const result = await pool.query('UPDATE categorys SET is_deleted = true WHERE id = $1', [id]);
+        // 🔄 Sync both flags for legacy and manifest compatibility
+        const result = await pool.query('UPDATE categorys SET is_deleted = true, is_delete = true WHERE id = $1', [id]);
         if (result.rowCount === 0) {
             console.log(`[STITCH_CAT] DELETE_FAIL: ID=${id} (NOT_FOUND)`);
             return res.status(404).json({ success: false, message: 'Category not found' });

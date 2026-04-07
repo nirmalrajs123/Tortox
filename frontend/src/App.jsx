@@ -12,6 +12,7 @@ import ProductDetailPage from './components/ProductDetailPage';
 
 import CategoryGrid from './components/CategoryGrid';
 import LatestGear from './components/LatestGear';
+import { SwagProvider } from './context/SwagContext';
 
 function App() {
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
@@ -26,8 +27,9 @@ function App() {
   };
 
   return (
-    <Router>
-      <div style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-main)', minHeight: '100vh', position: 'relative', transition: 'all 0.3s ease' }}>
+    <SwagProvider>
+      <Router>
+        <div style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-main)', minHeight: '100vh', position: 'relative', transition: 'all 0.3s ease' }}>
 
         <Routes>
           {/* Home Page */}
@@ -57,7 +59,8 @@ function App() {
         </Routes>
 
       </div>
-    </Router>
+      </Router>
+    </SwagProvider>
   )
 }
 

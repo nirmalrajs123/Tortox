@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
-import { X, Plus, Trash2, GripVertical } from 'lucide-react';
+import { X, Plus, Trash2, GripVertical, FileText, FileImage, Download } from 'lucide-react';
 import { productService } from '../services/product';
 import { categoryService } from '../services/category';
+import { useSwag } from '../context/SwagContext';
 
 const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
+    const { showAlert } = useSwag();
     // 📝 Expanded Form States
     const [activeTab, setActiveTab] = useState('General');
     const [category, setCategory] = useState('');
@@ -39,7 +41,9 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
     const [showCombinations, setShowCombinations] = useState(false);
 
     // 📸 Product Images State
-    const [productImages, setProductImages] = useState([]); // { file: File|null, preview: string }[]
+    const [productGalleryFile, setProductGalleryFile] = useState(null);
+    const [productGalleryPreview, setProductGalleryPreview] = useState('');
+    const [removeGalleryImage, setRemoveGalleryImage] = useState(false);
     const [hoverImage, setHoverImage] = useState('');
     const [hoverImageFile, setHoverImageFile] = useState(null);
 
@@ -117,22 +121,19 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
     const [caseDisplay, setCaseDisplay] = useState(''); // 🖥️ Display Dropdown State trigger framing overlay flaw properly
 
     // 🔬 Detailed Case Specs state bundle nodes trigger framing
-    const [caseSpecsList, setCaseSpecsList] = useState([
-        { id: 1, key: 'dimensions', label: 'Case Dimensions', value: '' },
-        { id: 2, key: 'material', label: 'Case Material', value: '' },
-        { id: 3, key: 'coolerTop', label: 'Max Liquid Cooler (Top)', value: '' },
-        { id: 4, key: 'coolerBottom', label: 'Max Liquid Cooler (Bottom)', value: '' },
-        { id: 5, key: 'coolerSide', label: 'Max Liquid Cooler (Side)', value: '' },
-        { id: 6, key: 'coolerRear', label: 'Max Liquid Cooler (Rear)', value: '' },
-        { id: 7, key: 'maxFans', label: 'Max Fan Count', value: '' },
-        { id: 8, key: 'maxGpu', label: 'Max GPU Length', value: '' },
-        { id: 9, key: 'maxCpu', label: 'Max CPU Height/Length', value: '' },
-        { id: 10, key: 'driveBays', label: 'Drive Bays', value: '' },
-        { id: 11, key: 'ioPorts', label: 'I/O Ports', value: '' },
-        { id: 12, key: 'pcieSlots', label: 'PCIE Slots', value: '' }
-    ]);
+    const [caseSpecsList, setCaseSpecsList] = useState([]);
     const [categories, setCategories] = useState([]);
     const [filtersList, setFiltersList] = useState([]);
+
+    // 📂 Downloadables State flawlessly setup 
+    const [manuals, setManuals] = useState([]); // [{id, label, file, preview, isNew}]
+    const [desktopBannerFile, setDesktopBannerFile] = useState(null);
+    const [desktopBannerPreview, setDesktopBannerPreview] = useState('');
+    const [removeDesktopBanner, setRemoveDesktopBanner] = useState(false);
+    const [mobileBannerFile, setMobileBannerFile] = useState(null);
+    const [mobileBannerPreview, setMobileBannerPreview] = useState('');
+    const [removeMobileBanner, setRemoveMobileBanner] = useState(false);
+    const [additionalDownloads, setAdditionalDownloads] = useState([]);
 
     // 🔄 Sync new spec fields to all variants flawlessly flaws flawlessly
     // 🔄 Sync new spec fields to all variants flawlessly flaws flawlessly
@@ -267,8 +268,9 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
                 } catch (e) { }
             }
 
-            if (productToEdit.combinations && productToEdit.combinations.length > 0) {
-                const hydratedCombs = productToEdit.combinations.map(c => ({
+            const productCombs = productToEdit.combinations || productToEdit.variants;
+            if (productCombs && productCombs.length > 0) {
+                const hydratedCombs = productCombs.map(c => ({
                     ...c,
                     features: (c.features || []).map(f => typeof f === 'string' ? { id: crypto.randomUUID(), text: f } : f),
                     previews: (c.previews || []).map(p => {
@@ -278,31 +280,69 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
                     })
                 }));
                 setCombinations(hydratedCombs);
-                const hasColor = productToEdit.combinations.some(c => c.Color);
-                const hasSize = productToEdit.combinations.some(c => c.Size);
-                const hasStyle = productToEdit.combinations.some(c => c.Style);
+                const hasColor = productCombs.some(c => c.Color !== undefined && c.Color !== null && c.Color !== '');
+                const hasSize = productCombs.some(c => c.Size !== undefined && c.Size !== null && c.Size !== '');
+                const hasStyle = productCombs.some(c => c.Style !== undefined && c.Style !== null && c.Style !== '');
                 setSelectedVariants({ Color: !!hasColor, Size: !!hasSize, Style: !!hasStyle });
+
+                const allColors = [...new Set(productCombs.map(c => c.Color).filter(Boolean))].join(', ');
+                const allSizes = [...new Set(productCombs.map(c => c.Size).filter(Boolean))].join(', ');
+                const allStyles = [...new Set(productCombs.map(c => c.Style).filter(Boolean))].join(', ');
+                setVariantDetails({ Color: allColors, Size: allSizes, Style: allStyles });
             }
 
             if (productToEdit.product_images && productToEdit.product_images.length > 0) {
-                setProductImages(productToEdit.product_images.map(img => {
-                    const path = img.image_path || '';
-                    if (path.startsWith('http')) return { file: null, preview: path };
-                    // Ensure slash between domain and path
-                    const slash = path.startsWith('/') ? '' : '/';
-                    return { file: null, preview: `http://${window.location.hostname}:5000${slash}${path}` };
-                }));
+                const head = productToEdit.product_images[0].image_path || '';
+                const path = head.startsWith('http') ? head : `http://${window.location.hostname}:5000${head.startsWith('/') ? '' : '/'}${head}`;
+                setProductGalleryPreview(path);
             }
             if (productToEdit.hover_image) {
                 const h = productToEdit.hover_image;
                 const fullH = h.startsWith('http') ? h : `http://${window.location.hostname}:5000${h.startsWith('/') ? '' : '/'}${h}`;
                 setHoverImage(fullH);
             }
+
+            // 📂 Hydrate Downloadables flawlessly setup 
+            if (productToEdit.technical_manuals) {
+                setManuals(productToEdit.technical_manuals.map(m => {
+                    const p = m.preview || '';
+                    const fullP = p.startsWith('http') || p.startsWith('blob') ? p : `http://${window.location.hostname}:5000${p.startsWith('/') ? '' : '/'}${p}`;
+                    return {
+                        ...m,
+                        alt: m.download_label,
+                        preview: fullP,
+                        download_path: p // Keep original path for updates
+                    };
+                }));
+            }
+            if (productToEdit.desktop_banner) {
+                const b = productToEdit.desktop_banner;
+                setDesktopBannerPreview(b.startsWith('http') ? b : `http://${window.location.hostname}:5000${b.startsWith('/') ? '' : '/'}${b}`);
+            }
+            if (productToEdit.mobile_banner) {
+                const b = productToEdit.mobile_banner;
+                setMobileBannerPreview(b.startsWith('http') ? b : `http://${window.location.hostname}:5000${b.startsWith('/') ? '' : '/'}${b}`);
+            }
+            if (productToEdit.downloads && Array.isArray(productToEdit.downloads)) {
+                setAdditionalDownloads(productToEdit.downloads.map(dl => {
+                    const p = dl.download_path || '';
+                    const fullP = p.startsWith('http') || p.startsWith('blob') ? p : `http://${window.location.hostname}:5000${p.startsWith('/') ? '' : '/'}${p}`;
+                    return {
+                        ...dl,
+                        preview: fullP,
+                        alt: dl.download_label
+                    };
+                }));
+            }
+            if (productToEdit.product_images && Array.isArray(productToEdit.product_images) && productToEdit.product_images.length > 0) {
+                const g = productToEdit.product_images[0].image_path || '';
+                setProductGalleryPreview(g.startsWith('http') ? g : `http://${window.location.hostname}:5000${g.startsWith('/') ? '' : '/'}${g}`);
+            }
         } else if (isOpen && !productToEdit) {
             setCategory(''); setName(''); setModelNo(''); setModelName(''); setDescription('');
             setMbCompat(''); setCoolerCompat(''); setPanelType(''); setInstalledFans(''); setInstalledPsu(''); setCaseDisplay('');
             setFeatures(['']);
-            setProductImages([]);
+            setProductGalleryPreview(''); setProductGalleryFile(null);
             setImage('');
             setMainImageFile(null);
         }
@@ -433,9 +473,9 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
         if (!category) { setStatusMessage("Required: Category Selection"); setStatusType('error'); return; }
 
         // 📸 REQUIRE IMAGES AS PER USER REQUEST
-        if (productImages.length === 0) {
+        if (!productGalleryPreview && !productGalleryFile) {
             setActiveTab('Product Images');
-            setStatusMessage("Required: At least one Image"); setStatusType('error'); return;
+            setStatusMessage("Required: Gallery Image"); setStatusType('error'); return;
         }
         if (!hoverImage && !hoverImageFile) {
             setActiveTab('Product Images');
@@ -480,8 +520,8 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
             .filter(f => f.value && f.value.trim() !== '')
             .map(f => {
                 const optMatch = (f.options || []).find(opt => opt.filter_value === f.value);
-                return { 
-                    filter_type_id: f.id, 
+                return {
+                    filter_type_id: f.id,
                     filter_value: f.value,
                     filter_value_id: optMatch ? optMatch.id : null
                 };
@@ -547,19 +587,50 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
             formData.append(`comb_images_order_${idx}`, JSON.stringify(orderList));
         });
 
-        // 📸 Append Product Images
-        const existingImages = [];
-        productImages.forEach((img) => {
-            if (img.file) {
-                formData.append('product_images', img.file);
-            } else if (img.preview) {
-                const purePath = img.preview.replace(/^https?:\/\/[^\/]+/i, '').trim();
-                if (purePath && purePath !== '/') {
-                    existingImages.push(purePath);
-                }
+        // 📸 Append Product Gallery Image
+        if (productGalleryFile) {
+            formData.append('product_images', productGalleryFile);
+        } else if (productGalleryPreview && !removeGalleryImage) {
+            const purePath = productGalleryPreview.replace(/^https?:\/\/[^\/]+/i, '').trim();
+            if (purePath && purePath !== '/') {
+                formData.append('existing_product_images', JSON.stringify([purePath]));
             }
+        } else {
+            formData.append('existing_product_images', JSON.stringify([]));
+        }
+
+        // 📂 Append Downloadables flawlessly setup 
+        const manualsPayload = manuals.map(m => {
+            if (m.file) return { isNew: true, label: m.alt };
+            return { isNew: false, label: m.alt, path: (m.download_path || m.preview || '').replace(/^https?:\/\/[^\/]+/i, '') };
         });
-        formData.append('existing_product_images', JSON.stringify(existingImages));
+        formData.append('manuals_config', JSON.stringify(manualsPayload));
+        manuals.forEach((m, idx) => {
+            if (m.file) formData.append(`manual_file_${idx}`, m.file);
+        });
+
+        if (desktopBannerFile) {
+            formData.append('desktop_banner', desktopBannerFile);
+        } else if (desktopBannerPreview && !removeDesktopBanner) {
+            formData.append('existing_desktop_banner', desktopBannerPreview.replace(/^https?:\/\/[^\/]+/i, ''));
+        }
+        if (removeDesktopBanner) formData.append('remove_desktop_banner', 'true');
+
+        if (mobileBannerFile) {
+            formData.append('mobile_banner', mobileBannerFile);
+        } else if (mobileBannerPreview && !removeMobileBanner) {
+            formData.append('existing_mobile_banner', mobileBannerPreview.replace(/^https?:\/\/[^\/]+/i, ''));
+        }
+        if (removeMobileBanner) formData.append('remove_mobile_banner', 'true');
+
+        const downloadsPayload = additionalDownloads.map(dl => {
+            if (dl.file) return { isNew: true, label: dl.alt };
+            return { isNew: false, label: dl.alt, path: dl.preview.replace(/^https?:\/\/[^\/]+/i, '') };
+        });
+        formData.append('downloads_config', JSON.stringify(downloadsPayload));
+        additionalDownloads.forEach((dl, idx) => {
+            if (dl.file) formData.append(`download_file_${idx}`, dl.file);
+        });
 
         try {
             if (productToEdit) {
@@ -577,9 +648,10 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
             setMainImageFile(null);
             setSelectedVariants({ Color: false, Size: false, Style: false }); setVariantDetails({ Color: '', Size: '', Style: '' }); setFeatures(['']);
             setCustomSpecs([]); setCombinations([]); setShowCombinations(false);
-            setProductImages([]);
+            setProductGalleryPreview(''); setProductGalleryFile(null);
             setMbCompat(''); setCoolerCompat(''); setPanelType(''); setInstalledFans(''); setInstalledPsu(''); setCaseDisplay('');
             setCaseSpecsList(caseSpecsList.map(s => ({ ...s, value: '' })));
+            setManuals([]); setAdditionalDownloads([]);
         } catch (err) {
             console.error("Add Product Frontend Error:", err.response?.data || err.message || err);
             setStatusMessage(err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to add product');
@@ -631,7 +703,7 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
 
                             <form onSubmit={handleAddProduct} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
                                 <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-ghost)', paddingBottom: '16px', marginBottom: '1.5rem', overflowX: 'auto' }}>
-                                    {['General', 'Variant', 'Product Images'].map((t) => (
+                                    {['General', 'Variant', 'Product Images', 'Downloadables'].map((t) => (
                                         <button key={t} type="button" onClick={() => setActiveTab(t)} className="telemetry" style={{ padding: '10px 24px', background: activeTab === t ? 'var(--accent-primary)' : 'transparent', color: activeTab === t ? '#fff' : 'var(--text-dim)', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 800, transition: 'all 0.2s', textTransform: 'uppercase', letterSpacing: '1px' }}>{t}</button>
                                     ))}
                                 </div>
@@ -691,16 +763,16 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
                                         </div>
 
                                         {combinations.length > 0 && (
-                                            <div style={{ border: '1px solid #e2e8f0', borderRadius: '14px', overflow: 'hidden', background: '#fff' }}>
+                                            <div style={{ border: '1px solid var(--border-ghost)', borderRadius: '16px', overflow: 'hidden', background: 'var(--bg-secondary)', boxShadow: '0 10px 30px rgba(0,0,0,0.15)' }}>
                                                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                                                     <thead>
-                                                        <tr style={{ background: '#f8fafc' }}>
-                                                            {selectedVariants.Color && <th style={{ padding: '12px', fontSize: '0.7rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase' }}>Color</th>}
-                                                            {selectedVariants.Size && <th style={{ padding: '12px', fontSize: '0.7rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase' }}>Size</th>}
-                                                            {selectedVariants.Style && <th style={{ padding: '12px', fontSize: '0.7rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase' }}>Style</th>}
-                                                            <th style={{ padding: '12px', fontSize: '0.7rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase' }}>Images</th>
-                                                            <th style={{ padding: '12px', fontSize: '0.7rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase' }}>Details</th>
-                                                            <th style={{ padding: '12px', fontSize: '0.7rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', textAlign: 'center' }}>Remove</th>
+                                                        <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid var(--border-ghost)' }}>
+                                                            {selectedVariants.Color && <th style={{ padding: '16px 12px', fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px' }}>Color</th>}
+                                                            {selectedVariants.Size && <th style={{ padding: '16px 12px', fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px' }}>Size</th>}
+                                                            {selectedVariants.Style && <th style={{ padding: '16px 12px', fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px' }}>Style</th>}
+                                                            <th style={{ padding: '16px 12px', fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px' }}>Images</th>
+                                                            <th style={{ padding: '16px 12px', fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px' }}>Details</th>
+                                                            <th style={{ padding: '16px 12px', fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Remove</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -803,32 +875,58 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
 
                                             <p style={{ fontSize: '0.78rem', fontWeight: 800, color: '#e11919', textTransform: 'uppercase', marginBottom: '12px' }}>Product Images</p>
 
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px', marginBottom: '12px' }}>
-                                                {productImages.map((img, index) => (
-                                                    <div key={index} style={{ position: 'relative', border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden', background: '#fff', aspectRatio: '1' }}>
-                                                        <img src={img.preview} alt={`Product ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                        <button type="button" onClick={() => {
-                                                            setProductImages(productImages.filter((_, i) => i !== index));
-                                                        }} style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(239,68,68,0.9)', color: '#fff', border: 'none', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>×</button>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(140px, 1fr)', gap: '12px' }}>
+                                                <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                                                    <div style={{
+                                                        width: '180px',
+                                                        height: '180px',
+                                                        border: productGalleryPreview ? '1px solid #e2e8f0' : '2px dashed #cbd5e1',
+                                                        borderRadius: '16px',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        position: 'relative',
+                                                        background: '#fff',
+                                                        overflow: 'hidden',
+                                                        cursor: 'pointer'
+                                                    }}>
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            onChange={(e) => {
+                                                                const file = e.target.files[0];
+                                                                if (file) {
+                                                                    setProductGalleryFile(file);
+                                                                    setProductGalleryPreview(URL.createObjectURL(file));
+                                                                    setRemoveGalleryImage(false);
+                                                                }
+                                                            }}
+                                                            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', zIndex: 10 }}
+                                                        />
+                                                        {productGalleryPreview ? (
+                                                            <>
+                                                                <img src={productGalleryPreview} alt="Gallery preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.5)', color: '#fff', fontSize: '10px', padding: '6px', textAlign: 'center' }}>Change</div>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Plus size={24} color="#94a3b8" />
+                                                                <span style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '8px', fontWeight: 600 }}>Add Image</span>
+                                                            </>
+                                                        )}
                                                     </div>
-                                                ))}
-
-                                                <div style={{ border: '2px dashed #cbd5e1', borderRadius: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', aspectRatio: '1', position: 'relative', cursor: 'pointer', background: '#fff', transition: 'all 0.2s' }}>
-                                                    <input type="file" multiple accept="image/*" onChange={(e) => {
-                                                        const files = Array.from(e.target.files);
-                                                        const newImages = files.map(file => ({
-                                                            file,
-                                                            preview: URL.createObjectURL(file)
-                                                        }));
-                                                        setProductImages([...productImages, ...newImages]);
-                                                        e.target.value = '';
-                                                    }} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }} />
-                                                    <Plus size={22} color="#94a3b8" />
-                                                    <span style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '4px', fontWeight: 600 }}>Add Image</span>
+                                                    {productGalleryPreview && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => { setProductGalleryPreview(''); setProductGalleryFile(null); setRemoveGalleryImage(true); }}
+                                                            style={{ padding: '10px 18px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}
+                                                        >
+                                                            Remove
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
-
-                                            <p style={{ fontSize: '0.72rem', color: '#9ca3af', marginBottom: '1.2rem' }}>{productImages.length} image{productImages.length !== 1 ? 's' : ''} added</p>
 
                                             {/* Hover Image Option */}
                                             <div style={{ marginTop: '1.5rem', borderTop: '1px solid #e2e8f0', paddingTop: '1.2rem' }}>
@@ -883,19 +981,161 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
                                     </div>
                                 </div>
 
+                                <div style={{ display: activeTab === 'Downloadables' ? 'flex' : 'none', flexDirection: 'column', gap: '2.5rem' }}>
+                                    <div style={{ padding: '0 1.2rem' }}>
+                                        {/* Technical Documentation Segment - Multi Row Support */}
+                                        <div style={{ border: '1px solid #e2e8f0', padding: '1.8rem', borderRadius: '16px', background: '#f8fafc', marginBottom: '20px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                                                <p style={{ fontSize: '0.8rem', fontWeight: 900, color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Technical Documentation</p>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setManuals([...manuals, { id: Date.now(), alt: '', preview: '', isNew: true }])}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 12px', background: 'var(--accent-primary)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
+                                                >
+                                                    <Plus size={14} /> Add Row
+                                                </button>
+                                            </div>
+
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                {manuals.length === 0 && (
+                                                    <div style={{ padding: '20px', textAlign: 'center', border: '1px dashed #cbd5e1', borderRadius: '12px', background: '#fff' }}>
+                                                        <p style={{ color: '#94a3b8', fontSize: '0.8rem' }}>No technical documents added yet.</p>
+                                                    </div>
+                                                )}
+                                                {manuals.map((m, idx) => (
+                                                    <div key={m.id || idx} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '15px', alignItems: 'center', background: '#fff', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                                        <div>
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Document Label (e.g. User Manual)"
+                                                                value={m.alt}
+                                                                onChange={(e) => {
+                                                                    const list = [...manuals];
+                                                                    list[idx].alt = e.target.value;
+                                                                    setManuals(list);
+                                                                }}
+                                                                style={{ ...inputStyle, padding: '10px' }}
+                                                            />
+                                                        </div>
+                                                        <div style={{ position: 'relative', height: '42px', border: '1px solid #e2e8f0', borderRadius: '8px', display: 'flex', alignItems: 'center', padding: '0 10px', overflow: 'hidden' }}>
+                                                            <input
+                                                                type="file"
+                                                                accept=".pdf,.doc,.docx"
+                                                                onChange={(e) => {
+                                                                    const file = e.target.files[0];
+                                                                    if (file) {
+                                                                        const list = [...manuals];
+                                                                        list[idx].file = file;
+                                                                        list[idx].preview = file.name;
+                                                                        setManuals(list);
+                                                                    }
+                                                                }}
+                                                                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
+                                                            />
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                                                                <FileText size={16} color="#94a3b8" />
+                                                                <span style={{ fontSize: '0.8rem', color: m.preview ? '#475569' : '#94a3b8' }}>
+                                                                    {m.preview?.split('/').pop() || 'Choose File...'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setManuals(manuals.filter((_, i) => i !== idx))}
+                                                            style={{ padding: '10px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '10px', cursor: 'pointer' }}
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Marketing Banners Segment */}
+                                        <div style={{ border: '1px solid #e2e8f0', padding: '1.8rem', borderRadius: '16px', background: '#f8fafc', marginBottom: '20px' }}>
+                                            <p style={{ fontSize: '0.8rem', fontWeight: 900, color: 'var(--accent-primary)', textTransform: 'uppercase', marginBottom: '15px', letterSpacing: '1px' }}>Marketing Asset Banners</p>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                                {/* Desktop Banner */}
+                                                <div style={{ background: '#fff', padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                                    <label style={{ ...labelStyle, fontSize: '0.65rem' }}>Desktop Banner (Wide)</label>
+                                                    <div style={{ height: '100px', border: '1px solid #f1f5f9', borderRadius: '8px', marginBottom: '10px', overflow: 'hidden', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        {desktopBannerPreview ? (
+                                                            <img src={desktopBannerPreview} alt="Desktop preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                        ) : (
+                                                            <FileImage size={24} color="#e2e8f0" />
+                                                        )}
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                        <input type="file" accept="image/*" onChange={(e) => {
+                                                            const file = e.target.files[0];
+                                                            if (file) {
+                                                                setDesktopBannerFile(file);
+                                                                setDesktopBannerPreview(URL.createObjectURL(file));
+                                                                setRemoveDesktopBanner(false);
+                                                            }
+                                                        }} style={{ ...inputStyle, padding: '8px', fontSize: '0.75rem', height: 'auto', flex: 1 }} />
+                                                        {desktopBannerPreview && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => { setDesktopBannerFile(null); setDesktopBannerPreview(''); setRemoveDesktopBanner(true); }}
+                                                                style={{ padding: '8px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Mobile Banner */}
+                                                <div style={{ background: '#fff', padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                                    <label style={{ ...labelStyle, fontSize: '0.65rem' }}>Mobile Banner (Vertical)</label>
+                                                    <div style={{ height: '100px', border: '1px solid #f1f5f9', borderRadius: '8px', marginBottom: '10px', overflow: 'hidden', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        {mobileBannerPreview ? (
+                                                            <img src={mobileBannerPreview} alt="Mobile preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                        ) : (
+                                                            <FileImage size={24} color="#e2e8f0" />
+                                                        )}
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                        <input type="file" accept="image/*" onChange={(e) => {
+                                                            const file = e.target.files[0];
+                                                            if (file) {
+                                                                setMobileBannerFile(file);
+                                                                setMobileBannerPreview(URL.createObjectURL(file));
+                                                                setRemoveMobileBanner(false);
+                                                            }
+                                                        }} style={{ ...inputStyle, padding: '8px', fontSize: '0.75rem', height: 'auto', flex: 1 }} />
+                                                        {mobileBannerPreview && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => { setMobileBannerFile(null); setMobileBannerPreview(''); setRemoveMobileBanner(true); }}
+                                                                style={{ padding: '8px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Downloads section removed as requested */}
+                                    </div>
+                                </div>
+
 
 
 
                                 <div style={{ marginTop: '2.5rem', display: 'flex', gap: '1rem', justifyContent: 'space-between', borderTop: '1px solid var(--border-ghost)', paddingTop: '2.5rem' }}>
                                     <button type="button" onClick={() => {
-                                        const tabs = ['General', 'Variant', 'Product Images'];
+                                        const tabs = ['General', 'Variant', 'Product Images', 'Downloadables'];
                                         const currIndex = tabs.indexOf(activeTab);
                                         if (currIndex > 0) setActiveTab(tabs[currIndex - 1]);
                                     }} className="telemetry" style={{ padding: '14px 28px', background: 'var(--bg-high)', color: 'var(--text-dim)', border: '1px solid var(--border-ghost)', borderRadius: '12px', fontWeight: 800, cursor: activeTab === 'General' ? 'not-allowed' : 'pointer', textTransform: 'uppercase', letterSpacing: '2px', opacity: activeTab === 'General' ? 0 : 1, pointerEvents: activeTab === 'General' ? 'none' : 'auto', transition: 'all 0.2s', fontSize: '0.75rem' }}>Back</button>
 
-                                    {activeTab !== 'Product Images' ? (
+                                    {activeTab !== 'Downloadables' ? (
                                         <button type="button" onClick={() => {
-                                            const tabs = ['General', 'Variant', 'Product Images'];
+                                            const tabs = ['General', 'Variant', 'Product Images', 'Downloadables'];
                                             setActiveTab(tabs[tabs.indexOf(activeTab) + 1]);
                                         }} className="telemetry" style={{ padding: '14px 32px', background: 'var(--bg-high)', color: 'var(--accent-primary)', border: '1px solid var(--accent-primary)', borderRadius: '12px', fontWeight: 900, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '2px', transition: 'all 0.2s', fontSize: '0.75rem' }}>Next Step</button>
                                     ) : (
@@ -939,11 +1179,104 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '1px solid var(--border)', paddingBottom: '1.5rem' }}>
                                 <div>
                                     <h4 style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>Configure Variant Details</h4>
-                                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                        Setting up: {combinations[editingVariantIdx].Color} {combinations[editingVariantIdx].Size} {combinations[editingVariantIdx].Style}
+                                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '8px' }}>
+                                        Setting up: {combinations[editingVariantIdx].Color || ''} {combinations[editingVariantIdx].Size || ''} {combinations[editingVariantIdx].Style || ''}
                                     </p>
                                 </div>
-                                <button type="button" onClick={() => setIsVariantModalOpen(false)} style={{ background: 'var(--bg-secondary)', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', borderRadius: '50%', width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="hover-lift"><X size={24} /></button>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                    {/* 📋 Red COPY Button - Always Present */}
+                                    <div style={{ position: 'relative' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const menu = document.getElementById('variant-copy-menu');
+                                                if (menu) menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+                                            }}
+                                            style={{
+                                                background: '#e11919',
+                                                color: '#fff',
+                                                border: 'none',
+                                                borderRadius: '8px',
+                                                padding: '8px 24px',
+                                                fontSize: '0.75rem',
+                                                fontWeight: 900,
+                                                cursor: 'pointer',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '1px',
+                                                transition: 'all 0.2s',
+                                                boxShadow: '0 4px 12px rgba(225,25,25,0.2)'
+                                            }}
+                                            onMouseEnter={(e) => e.target.style.background = '#ff1a1a'}
+                                            onMouseLeave={(e) => e.target.style.background = '#e11919'}
+                                        >
+                                            Copy
+                                        </button>
+
+                                        {/* Floating Selection Menu */}
+                                        <div
+                                            id="variant-copy-menu"
+                                            style={{
+                                                display: 'none',
+                                                position: 'absolute',
+                                                top: 'calc(100% + 10px)',
+                                                right: 0,
+                                                background: 'var(--bg-secondary)',
+                                                border: '1px solid var(--border)',
+                                                borderRadius: '12px',
+                                                boxShadow: '0 15px 50px rgba(0,0,0,0.4)',
+                                                width: '260px',
+                                                zIndex: 100,
+                                                overflow: 'hidden'
+                                            }}
+                                        >
+                                            <div style={{ padding: '15px', borderBottom: '1px solid var(--border)', fontSize: '0.75rem', fontWeight: 900, color: 'var(--accent-primary)', textTransform: 'uppercase' }}>Clone From Variant:</div>
+
+                                            {combinations.filter((_, ci) => ci !== editingVariantIdx).length > 0 ? (
+                                                combinations.map((c, ci) => ci !== editingVariantIdx && (
+                                                    <div
+                                                        key={ci}
+                                                        onClick={() => {
+                                                            const source = combinations[ci];
+                                                            const newComb = [...combinations];
+                                                            newComb[editingVariantIdx] = {
+                                                                ...newComb[editingVariantIdx],
+                                                                modelName: source.modelName || '',
+                                                                productName: source.productName || '',
+                                                                description: source.description || '',
+                                                                filters: source.filters ? JSON.parse(JSON.stringify(source.filters)) : [],
+                                                                features: source.features ? JSON.parse(JSON.stringify(source.features)) : [],
+                                                                specs: source.specs ? JSON.parse(JSON.stringify(source.specs)) : []
+                                                            };
+                                                            setCombinations(newComb);
+                                                            document.getElementById('variant-copy-menu').style.display = 'none';
+                                                        }}
+                                                        style={{
+                                                            padding: '12px 18px',
+                                                            fontSize: '0.85rem',
+                                                            cursor: 'pointer',
+                                                            borderBottom: '1px solid var(--border-ghost)',
+                                                            color: 'var(--text-main)',
+                                                            transition: 'background 0.2s'
+                                                        }}
+                                                        onMouseEnter={(e) => e.target.style.background = 'rgba(255,255,255,0.05)'}
+                                                        onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                                                    >
+                                                        {c.Color} | {c.Size || 'Standard'} | {c.Style || 'Standard'}
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div style={{ padding: '20px', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                                    First create other variants to copy from.
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <button type="button" onClick={() => setIsVariantModalOpen(false)} style={{ background: 'var(--bg-secondary)', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', borderRadius: '50%', width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="hover-lift">
+                                        <X size={24} />
+                                    </button>
+                                </div>
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '25px' }}>
@@ -1135,9 +1468,9 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
 const backdropStyle = { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflowY: 'auto', backdropFilter: 'blur(10px)' };
 const modalStyle = { background: 'var(--bg-primary)', color: 'var(--text-main)', padding: '3.5rem 2.5rem 6rem 2.5rem', width: '100vw', minHeight: '100vh', position: 'relative', border: 'none', transition: 'all 0.3s ease' };
 const headerStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3rem', paddingBottom: '24px', borderBottom: '1px solid var(--border-ghost)' };
-const labelStyle = { display: 'block', fontSize: '0.75rem', fontWeight: 900, color: '#000', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1.2px' };
-const inputStyle = { width: '100%', padding: '16px 20px', border: '1px solid #000', borderRadius: '12px', fontSize: '0.95rem', outline: 'none', margin: 0, background: 'var(--bg-secondary)', boxSizing: 'border-box', fontFamily: 'inherit', transition: 'all 0.3s ease', color: 'var(--text-main)' };
-const submitBtnStyle = { width: '100%', padding: '20px', background: 'var(--accent-primary)', color: '#000', border: 'none', borderRadius: '12px', fontWeight: 900, cursor: 'pointer', marginTop: '2.5rem', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '1rem', transition: 'all 0.3s ease' };
+const labelStyle = { display: 'block', fontSize: '0.75rem', fontWeight: 900, color: 'var(--text-dim)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1.2px' };
+const inputStyle = { width: '100%', padding: '16px 20px', border: '1px solid var(--border-ghost)', borderRadius: '12px', fontSize: '0.95rem', outline: 'none', margin: 0, background: 'var(--bg-secondary)', boxSizing: 'border-box', fontFamily: 'inherit', transition: 'all 0.3s ease', color: 'var(--text-main)' };
+const submitBtnStyle = { width: '100%', padding: '20px', background: '#e11919', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 900, cursor: 'pointer', marginTop: '2.5rem', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '1rem', transition: 'all 0.3s ease' };
 
 // 🛠️ Helper Components for Drag and Drop reliability
 const FeatureReorderItem = ({ feat, featIdx, combinations, editingVariantIdx, setCombinations, inputStyle }) => {

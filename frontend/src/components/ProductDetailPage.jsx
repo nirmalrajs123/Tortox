@@ -7,6 +7,9 @@ import {
     ChevronRight,
     Check,
     Maximize2,
+    Download,
+    Search,
+    FileText
 } from 'lucide-react';
 import Navbar from './Navbar';
 import Footer from './Footer';
@@ -72,6 +75,8 @@ const ProductDetailPage = ({ usesSlug }) => {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('View');
     const [activeVariantIndex, setActiveVariantIndex] = useState(-1);
+    const [selectedSize, setSelectedSize] = useState('');
+    const [selectedStyle, setSelectedStyle] = useState('');
     const [activeImage, setActiveImage] = useState(0);
     const [zoomPos, setZoomPos] = useState({ x: 0, y: 0, show: false });
     const imageRef = useRef(null);
@@ -83,7 +88,11 @@ const ProductDetailPage = ({ usesSlug }) => {
                 const res = await productService.getById(identifier);
                 const data = res.data?.data;
                 setProduct(data || null);
-                if (data?.variants?.length > 0) setActiveVariantIndex(0);
+                if (data?.variants?.length > 0) {
+                    setActiveVariantIndex(0);
+                    setSelectedSize(data.variants[0].Size || '');
+                    setSelectedStyle(data.variants[0].Style || '');
+                }
             } catch (err) {
                 console.error('Failed to fetch product:', err);
             } finally {
@@ -132,9 +141,11 @@ const ProductDetailPage = ({ usesSlug }) => {
     };
 
     const currentVariant = activeVariantIndex >= 0 ? product.variants?.[activeVariantIndex] : null;
-    const allImages = currentVariant
-        ? (currentVariant.previews || []).map(normalizePath)
-        : [product.image, ...(product.product_images?.map(img => img.image_path) || [])].filter(Boolean).map(normalizePath);
+    const allImages = [
+        ...(currentVariant ? (currentVariant.previews || []) : [product.image, ...(product.product_images?.map(img => img.image_path) || [])].filter(Boolean)),
+        product.desktop_banner,
+        product.mobile_banner
+    ].filter(Boolean).map(normalizePath);
     const specs = currentVariant ? (currentVariant.specs || []) : (Array.isArray(product.specifications) ? product.specifications : []);
     const features = currentVariant ? (currentVariant.features || []) : (Array.isArray(product.featuresList) ? product.featuresList : []);
 
@@ -201,7 +212,7 @@ const ProductDetailPage = ({ usesSlug }) => {
                                     <ChevronLeft size={24} />
                                 </button>
 
-                                <div style={{ width: '100%', aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <div style={{ width: '100%', aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
                                     <motion.img
                                         key={activeImage}
                                         initial={{ opacity: 0, scale: 0.95 }}
@@ -210,6 +221,13 @@ const ProductDetailPage = ({ usesSlug }) => {
                                         alt={pageTitle}
                                         style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                                     />
+
+
+
+                                    {/* Zoom Visual */}
+                                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'none', opacity: 0.8 }}>
+                                        <Search size={20} color="#d2d2d7" />
+                                    </div>
                                 </div>
 
                                 <button
@@ -220,14 +238,40 @@ const ProductDetailPage = ({ usesSlug }) => {
                                 </button>
                             </div>
 
-                            {/* Dots */}
-                            <div style={{ display: 'flex', gap: '8px', marginTop: '30px' }}>
-                                {allImages.map((_, i) => (
+                            {/* Thumbnail Gallery Navigation */}
+                            <div style={{
+                                display: 'flex',
+                                gap: '12px',
+                                marginTop: '40px',
+                                overflowX: 'auto',
+                                maxWidth: '100%',
+                                padding: '10px 0',
+                                scrollbarWidth: 'none',
+                                justifyContent: 'center'
+                            }}>
+                                {allImages.map((img, i) => (
                                     <div
                                         key={i}
                                         onClick={() => setActiveImage(i)}
-                                        style={{ width: '8px', height: '8px', borderRadius: '50%', background: i === activeImage ? '#1d1d1f' : '#d2d2d7', cursor: 'pointer' }}
-                                    />
+                                        style={{
+                                            width: '64px',
+                                            height: '64px',
+                                            borderRadius: '12px',
+                                            border: i === activeImage ? '2px solid #1d1d1f' : '1px solid #d2d2d7',
+                                            padding: '4px',
+                                            cursor: 'pointer',
+                                            background: '#fff',
+                                            flexShrink: 0,
+                                            transition: 'all 0.2s',
+                                            boxShadow: i === activeImage ? '0 4px 12px rgba(0,0,0,0.08)' : 'none'
+                                        }}
+                                    >
+                                        <img
+                                            src={img}
+                                            alt={`Thumb ${i}`}
+                                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                        />
+                                    </div>
                                 ))}
                             </div>
 
@@ -268,17 +312,27 @@ const ProductDetailPage = ({ usesSlug }) => {
                                 <div>
                                     <p style={{ fontWeight: 700, marginBottom: '15px' }}>Colors - {currentVariant?.Color || 'Black'}</p>
                                     <div style={{ display: 'flex', gap: '15px' }}>
-                                        {product.variants?.map((v, i) => (
+                                        {[...new Map(product.variants?.map(v => [v.Color, v])).values()].map((v, i) => (
                                             <div
                                                 key={i}
-                                                onClick={() => { setActiveVariantIndex(i); setActiveImage(0); }}
+                                                onClick={() => {
+                                                    const firstMatch = product.variants.find(pv => pv.Color === v.Color);
+                                                    if (firstMatch) {
+                                                        const idx = product.variants.indexOf(firstMatch);
+                                                        setActiveVariantIndex(idx);
+                                                        setActiveImage(0);
+                                                        setSelectedSize(firstMatch.Size || '');
+                                                        setSelectedStyle(firstMatch.Style || '');
+                                                    }
+                                                }}
                                                 style={{
                                                     width: '36px', height: '36px', borderRadius: '50%',
-                                                    background: v.Color?.toLowerCase() === 'white' ? '#fff' : '#000',
-                                                    border: v.Color?.toLowerCase() === 'white' ? '1px solid #dcdcdc' : 'none',
+                                                    background: v.Color?.toLowerCase() === 'white' ? '#fff' : (v.Color?.toLowerCase() === 'black' ? '#1d1d1f' : v.Color),
+                                                    border: v.Color?.toLowerCase() === 'white' ? '1px solid #d2d2d7' : 'none',
                                                     padding: '3px', cursor: 'pointer',
-                                                    outline: activeVariantIndex === i ? `2px solid #000` : 'none',
-                                                    outlineOffset: '3px'
+                                                    outline: currentVariant?.Color === v.Color ? `2px solid #00dccc` : 'none',
+                                                    outlineOffset: '2px',
+                                                    boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)'
                                                 }}
                                             />
                                         ))}
@@ -288,61 +342,86 @@ const ProductDetailPage = ({ usesSlug }) => {
                                     </div>
                                 </div>
 
-                                {/* Category Specific Selectors: Edition vs Wattage */}
-                                <div>
-                                    <p style={{ fontWeight: 700, marginBottom: '15px' }}>
-                                        {categoryId === 2 ? 'Wattage' : 'Edition'}
-                                    </p>
-                                    <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
-                                        {categoryId === 2 ? (
-                                            ['1250W', '1050W', '850W', '750W'].map((w, idx) => (
-                                                <div
-                                                    key={idx}
-                                                    style={{
-                                                        padding: '16px 24px',
-                                                        border: idx === 0 ? `1.5px solid ${accentColor}` : '1.5px solid #e5e5e5',
-                                                        borderRadius: '8px',
-                                                        color: idx === 0 ? accentColor : '#86868b',
-                                                        fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer',
-                                                        minWidth: '100px', textAlign: 'center'
-                                                    }}
-                                                >
-                                                    {w}
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <>
-                                                <div style={{
-                                                    padding: '16px 24px', border: `1.5px solid ${accentColor}`, borderRadius: '8px',
-                                                    color: accentColor, fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer',
-                                                    flex: 1, textAlign: 'center'
-                                                }}>
-                                                    Standard Edition
-                                                </div>
-                                                <div style={{
-                                                    padding: '16px 24px', border: '1.5px solid #e5e5e5', borderRadius: '8px',
-                                                    color: '#86868b', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer',
-                                                    flex: 1, textAlign: 'center'
-                                                }}>
-                                                    Elite Edition
-                                                </div>
-                                            </>
-                                        )}
+                                {/* Dynamic Style Selector */}
+                                {product.variants?.some(v => v.Style) && (
+                                    <div>
+                                        <p style={{ fontWeight: 700, marginBottom: '15px' }}>Style</p>
+                                        <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+                                            {[...new Set(product.variants.filter(v => v.Color === currentVariant?.Color).map(v => v.Style).filter(Boolean))].map((style, idx) => {
+                                                const isActive = selectedStyle === style;
+                                                return (
+                                                    <div
+                                                        key={idx}
+                                                        onClick={() => {
+                                                            setSelectedStyle(style);
+                                                            const newIndex = product.variants.findIndex(v => v.Color === currentVariant?.Color && v.Style === style && (v.Size === selectedSize || !v.Size));
+                                                            if (newIndex !== -1) setActiveVariantIndex(newIndex);
+                                                        }}
+                                                        style={{
+                                                            padding: '16px 24px',
+                                                            border: isActive ? `1.5px solid ${accentColor}` : '1.5px solid #e5e5e5',
+                                                            borderRadius: '8px',
+                                                            color: isActive ? accentColor : '#86868b',
+                                                            fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer',
+                                                            minWidth: '100px', textAlign: 'center',
+                                                            background: isActive ? `${accentColor}08` : 'transparent',
+                                                            transition: 'all 0.2s'
+                                                        }}
+                                                    >
+                                                        {style}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
 
-                                {/* Find Retailer */}
-                                <div
+                                {/* Dynamic Size Selector */}
+                                {product.variants?.some(v => v.Size) && (
+                                    <div>
+                                        <p style={{ fontWeight: 700, marginBottom: '15px' }}>Size</p>
+                                        <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+                                            {[...new Set(product.variants.filter(v => v.Color === currentVariant?.Color && v.Style === selectedStyle).map(v => v.Size).filter(Boolean))].map((size, idx) => {
+                                                const isActive = selectedSize === size;
+                                                return (
+                                                    <div
+                                                        key={idx}
+                                                        onClick={() => {
+                                                            setSelectedSize(size);
+                                                            const newIndex = product.variants.findIndex(v => v.Color === currentVariant?.Color && v.Style === selectedStyle && v.Size === size);
+                                                            if (newIndex !== -1) setActiveVariantIndex(newIndex);
+                                                        }}
+                                                        style={{
+                                                            padding: '16px 24px',
+                                                            border: isActive ? `1.5px solid ${accentColor}` : '1.5px solid #e5e5e5',
+                                                            borderRadius: '8px',
+                                                            color: isActive ? accentColor : '#86868b',
+                                                            fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer',
+                                                            minWidth: '100px', textAlign: 'center',
+                                                            background: isActive ? `${accentColor}08` : 'transparent',
+                                                            transition: 'all 0.2s'
+                                                        }}
+                                                    >
+                                                        {size}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <button
                                     onClick={() => navigate('/contact')}
                                     style={{
-                                        marginTop: '10px', padding: '16px 20px', border: '1px solid #d2d2d7',
-                                        borderRadius: '8px', display: 'flex', justifyContent: 'space-between',
-                                        alignItems: 'center', cursor: 'pointer', color: '#424245'
+                                        marginTop: '10px', padding: '14px 40px', background: '#1d1d1f',
+                                        borderRadius: '25px', display: 'inline-flex', justifyContent: 'center',
+                                        alignItems: 'center', cursor: 'pointer', color: '#fff',
+                                        border: 'none', fontWeight: 800, textTransform: 'uppercase',
+                                        letterSpacing: '1px', fontSize: '0.85rem', width: 'fit-content'
                                     }}
                                 >
-                                    <span style={{ fontWeight: 600 }}>Shop Now</span>
-                                    <ChevronDown size={20} />
-                                </div>
+                                    Shop Now
+                                </button>
                             </div>
                         </div>
 
@@ -357,55 +436,167 @@ const ProductDetailPage = ({ usesSlug }) => {
 
 
             </AnimatePresence>
+
             {/* 🛠️ Industrial Control Strip */}
             <div style={{
                 borderTop: '1px solid #f2f2f2',
                 borderBottom: '1px solid #f2f2f2',
-                background: '#ffffff',
+                background: 'rgba(255, 255, 255, 0.98)',
+                backdropFilter: 'blur(10px)',
                 height: '70px',
                 display: 'flex',
-                justifyContent: 'center',
+                justifyContent: 'space-between',
                 alignItems: 'center',
-                gap: '60px',
-                marginTop: '60px'
+                marginTop: '60px',
+                padding: '0 8%',
+                position: 'sticky',
+                top: 0,
+                zIndex: 100,
+                boxShadow: '0 4px 20px rgba(0,0,0,0.02)'
             }}>
-                {['View', 'Spec', 'Galleries'].map(tab => (
-                    <div
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        style={{
-                            fontSize: '0.85rem',
-                            fontWeight: activeTab === tab ? 800 : 600,
-                            cursor: 'pointer',
-                            color: activeTab === tab ? '#1d1d1f' : '#86868b',
-                            position: 'relative',
-                            display: 'flex',
-                            alignItems: 'center',
-                            height: '100%',
-                            transition: 'color 0.2s',
-                            textTransform: 'uppercase',
-                            letterSpacing: '1px'
-                        }}
-                    >
-                        {tab}
-                        {activeTab === tab && (
-                            <motion.div
-                                layoutId="tab-underline-bottom"
-                                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                                style={{
-                                    position: 'absolute',
-                                    bottom: '-1px',
-                                    left: '-5px',
-                                    right: '-5px',
-                                    height: '3px',
-                                    background: accentColor,
-                                    zIndex: 2
-                                }}
-                            />
-                        )}
-                    </div>
-                ))}
+                <div style={{ display: 'flex', gap: '60px', height: '100%' }}>
+                    {['View', 'Views', 'Description', 'Spec', 'Galleries', 'Downloadables'].map(tab => (
+                        <div
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            style={{
+                                fontSize: '0.85rem',
+                                fontWeight: activeTab === tab ? 800 : 600,
+                                cursor: 'pointer',
+                                color: activeTab === tab ? '#1d1d1f' : '#86868b',
+                                position: 'relative',
+                                display: 'flex',
+                                alignItems: 'center',
+                                height: '100%',
+                                transition: 'color 0.2s',
+                                textTransform: 'uppercase',
+                                letterSpacing: '1px'
+                            }}
+                        >
+                            {tab}
+                            {activeTab === tab && (
+                                <motion.div
+                                    layoutId="tab-underline-bottom"
+                                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                                    style={{
+                                        position: 'absolute',
+                                        bottom: '-1px',
+                                        left: '-5px',
+                                        right: '-5px',
+                                        height: '3px',
+                                        background: accentColor,
+                                        zIndex: 2
+                                    }}
+                                />
+                            )}
+                        </div>
+                    ))}
+                </div>
+
+                <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => navigate('/contact')}
+                    style={{
+                        padding: '10px 32px',
+                        background: '#1d1d1f',
+                        borderRadius: '100px',
+                        color: '#fff',
+                        border: 'none',
+                        fontWeight: 900,
+                        textTransform: 'uppercase',
+                        fontSize: '0.75rem',
+                        cursor: 'pointer',
+                        letterSpacing: '1px',
+                        boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
+                    }}
+                >
+                    Shop Now
+                </motion.button>
             </div>
+
+            {activeTab === 'Views' && (
+                <motion.div
+                    key="views-tab"
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.98 }}
+                    style={{ maxWidth: '1440px', margin: '0 auto', padding: '100px 80px' }}
+                >
+                    <div style={{ textAlign: 'center', marginBottom: '80px' }}>
+                        <h2 style={{ fontSize: '3.5rem', fontWeight: 900, marginBottom: '20px' }}>Studio Perspectives</h2>
+                        <p style={{ fontSize: '1.2rem', color: '#86868b' }}>Every detail captured from our engineering desk to your screen.</p>
+                    </div>
+
+                    <div style={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: 'repeat(4, 1fr)', 
+                        gap: '24px',
+                        padding: '20px'
+                    }}>
+                        {allImages.slice(0, 8).map((img, i) => (
+                            <motion.div
+                                key={i}
+                                whileHover={{ y: -8 }}
+                                style={{
+                                    background: '#ffffff',
+                                    borderRadius: '24px',
+                                    overflow: 'hidden',
+                                    aspectRatio: '1/1',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    padding: '30px',
+                                    border: '1px solid #f2f2f2',
+                                    boxShadow: '0 10px 30px rgba(0,0,0,0.02)'
+                                }}
+                            >
+                                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                                    <img src={img} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                                </div>
+                                <span style={{ 
+                                    marginTop: '20px', 
+                                    fontSize: '0.7rem', 
+                                    fontWeight: 800, 
+                                    textTransform: 'uppercase', 
+                                    letterSpacing: '2px',
+                                    color: i === 0 ? accentColor : '#86868b'
+                                }}>
+                                    {i === 0 ? 'Master Angle' : `Perspective 0${i + 1}`}
+                                </span>
+                            </motion.div>
+                        ))}
+                    </div>
+                </motion.div>
+            )}
+            {activeTab === 'Description' && (
+                <motion.div
+                    key="description-tab"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    style={{ maxWidth: '1100px', margin: '0 auto', padding: '100px 20px' }}
+                >
+                    <div style={{ textAlign: 'center', marginBottom: '60px' }}>
+                        <h2 style={{ fontSize: '3rem', fontWeight: 900, color: '#1d1d1f', marginBottom: '20px' }}>Deep Dive</h2>
+                        <p style={{ fontSize: '1.1rem', color: '#86868b', maxWidth: '600px', margin: '0 auto' }}>Everything you need to know about the engineering and design philosophy behind this unit.</p>
+                    </div>
+                    
+                    <div style={{ 
+                        background: '#ffffff',
+                        borderRadius: '32px',
+                        padding: '60px',
+                        boxShadow: '0 20px 80px rgba(0,0,0,0.03)',
+                        border: '1px solid #f2f2f2',
+                        lineHeight: '1.8',
+                        fontSize: '1.15rem',
+                        color: '#4b5563',
+                        whiteSpace: 'pre-wrap'
+                    }}>
+                        {currentVariant?.description || product.description || "This high-performance hardware piece is designed to push the boundaries of modern PC building. Detailed narrative overview coming soon."}
+                    </div>
+                </motion.div>
+            )}
             {activeTab === 'Spec' && (
                 <motion.div
                     key="spec-tab"
@@ -435,12 +626,99 @@ const ProductDetailPage = ({ usesSlug }) => {
                         {allImages.map((img, i) => (
                             <motion.div
                                 key={i}
-                                whileHover={{ scale: 1.02, y: -5 }}
-                                style={{ background: '#f5f5f7', borderRadius: '15px', overflow: 'hidden', aspectRatio: '4/3' }}
+                                whileHover={{ scale: 1.02 }}
+                                style={{ background: '#f5f5f7', borderRadius: '24px', overflow: 'hidden', aspectRatio: '4/3', border: '1px solid #f2f2f2', position: 'relative' }}
                             >
-                                <img src={img} alt={`Gallery ${i}`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                <img src={img} alt={`Gallery ${i}`} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '20px' }} />
+
+                                <a
+                                    href={img}
+                                    download
+                                    style={{
+                                        position: 'absolute', bottom: '15px', right: '15px',
+                                        background: '#fff', border: 'none', width: '36px', height: '36px',
+                                        borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)', cursor: 'pointer', color: '#1d1d1f'
+                                    }}
+                                >
+                                    <Download size={16} />
+                                </a>
                             </motion.div>
                         ))}
+                    </div>
+                </motion.div>
+            )}
+
+            {activeTab === 'Downloadables' && (
+                <motion.div
+                    key="download-tab"
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    style={{ maxWidth: '1000px', margin: '0 auto', padding: '80px 20px' }}
+                >
+                    <h2 style={{ fontSize: '2rem', fontWeight: 900, marginBottom: '40px', textAlign: 'center' }}>Downloads & Support</h2>
+
+                    {/* Manuals Section */}
+                    <div style={{ marginBottom: '60px' }}>
+                        <h3 style={{ fontSize: '0.9rem', color: '#86868b', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '25px', fontWeight: 800 }}>Technical Documentation</h3>
+                        <div style={{ display: 'grid', gap: '15px' }}>
+                            {(product.technical_manuals || []).map((m, idx) => (
+                                <a
+                                    key={idx}
+                                    href={m.download_path || normalizePath(m.preview)}
+                                    download
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                        padding: '24px 30px', background: '#fafafa', borderRadius: '16px',
+                                        textDecoration: 'none', color: '#1d1d1f', border: '1px solid transparent',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#d2d2d7'; e.currentTarget.style.background = '#fff'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = '#fafafa'; }}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                        <div style={{ padding: '10px', background: '#f5f5f7', borderRadius: '10px' }}>
+                                            <FileText size={20} color="#e11919" />
+                                        </div>
+                                        <span style={{ fontWeight: 600 }}>{m.download_label || 'Product Manual'}</span>
+                                    </div>
+                                    <Download size={18} color="#86868b" />
+                                </a>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* General Downloads */}
+                    <div>
+                        <h3 style={{ fontSize: '0.9rem', color: '#86868b', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '25px', fontWeight: 800 }}>Software & Drivers</h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
+                            {(product.downloads || []).map((dl, idx) => (
+                                <a
+                                    key={idx}
+                                    href={dl.download_path || normalizePath(dl.preview)}
+                                    download
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    style={{
+                                        display: 'flex', flexDirection: 'column', gap: '15px',
+                                        padding: '25px', background: '#fafafa', borderRadius: '16px',
+                                        textDecoration: 'none', color: '#1d1d1f', border: '1px solid transparent',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#d2d2d7'; e.currentTarget.style.background = '#fff'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = '#fafafa'; }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <div style={{ padding: '10px', background: '#fff', borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                                            <Download size={20} color="#e11919" />
+                                        </div>
+                                        <span style={{ fontSize: '0.7rem', color: '#86868b', fontWeight: 700, textTransform: 'uppercase' }}>File</span>
+                                    </div>
+                                    <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{dl.download_label}</span>
+                                </a>
+                            ))}
+                        </div>
                     </div>
                 </motion.div>
             )}

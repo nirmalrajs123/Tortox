@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Globe, HelpCircle, ChevronDown, Moon, Sun } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { categoryService } from '../services/category';
 import TortoxLogo from './TortoxLogo';
@@ -136,29 +136,6 @@ const Navbar = ({ toggleTheme, theme = 'light' }) => {
             </ul>
 
             <div style={{ display: 'flex', gap: '1.2rem', alignItems: 'center' }}>
-                <motion.button
-                    onClick={toggleTheme}
-                    whileHover={{ scale: 1.1, color: 'var(--accent-primary)' }}
-                    whileTap={{ scale: 0.9 }}
-                    style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
-                >
-                    {theme === 'light' ? <Moon size={21} strokeWidth={2} /> : <Sun size={21} strokeWidth={2} />}
-                </motion.button>
-
-                <motion.button
-                    whileHover={{ scale: 1.1, color: 'var(--accent-primary)' }}
-                    style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', padding: 0 }}
-                >
-                    <Search size={21} strokeWidth={2} />
-                </motion.button>
-
-                <motion.button
-                    whileHover={{ scale: 1.1, color: 'var(--accent-primary)' }}
-                    style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', padding: 0 }}
-                >
-                    <Globe size={21} strokeWidth={2} />
-                </motion.button>
-
                 <motion.button
                     onClick={() => navigate('/login')}
                     whileHover={{ scale: 1.05, opacity: 0.9 }}

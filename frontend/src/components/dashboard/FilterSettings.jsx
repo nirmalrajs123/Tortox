@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, ChevronRight, Filter, Settings2, Hash, Layers, Save, X, Edit2, Check } from 'lucide-react';
+import { motion, AnimatePresence, Reorder } from 'framer-motion';
+import { Plus, Trash2, ChevronRight, Filter, Settings2, Hash, Layers, Save, X, Edit2, Check, GripVertical } from 'lucide-react';
 import { categoryService } from '../../services/category';
 import { productService } from '../../services/product';
 
@@ -147,6 +147,26 @@ const FilterSettings = () => {
         }
     };
 
+    const handleReorder = async (newOrder) => {
+        setLabels(newOrder); // ⚡ Visual Sync Impulse
+        try {
+            const payload = newOrder.map((l, idx) => ({ id: l.id, order_id: idx + 1 }));
+            await productService.reorderFilterLabels({ order: payload });
+        } catch (err) {
+            console.error("REORDER SYNC FAILED:", err);
+        }
+    };
+
+    const handleReorderValues = async (newValues) => {
+        setValues(newValues); // ⚡ Visual Sync Impulse
+        try {
+            const payload = newValues.map((v, idx) => ({ id: v.id, order_id: idx + 1 }));
+            await productService.reorderFilterValues({ order: payload });
+        } catch (err) {
+            console.error("REORDER VALUES SYNC FAILED:", err);
+        }
+    };
+
     return (
         <div style={cardStyle}>
             <div style={headerSectionStyle}>
@@ -222,45 +242,52 @@ const FilterSettings = () => {
 
                             <div style={listScrollStyle}>
                                 <div style={{ marginBottom: '10px', fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Existing Labels</div>
-                                {labels.map(l => (
-                                    <motion.div
-                                        key={l.id}
-                                        onClick={() => { setSelectedLabelId(l.id); setIsBuilding(false); }}
-                                        style={{
-                                            ...itemRowStyle,
-                                            background: selectedLabelId === l.id ? 'linear-gradient(135deg, #ffffff 0%, #fff1f1 100%)' : '#fff',
-                                            borderColor: selectedLabelId === l.id ? '#e11919' : '#f1f5f9',
-                                        }}
-                                        whileHover={{ scale: 1.01 }}
-                                    >
-                                        {editingLabelId === l.id ? (
-                                            <div style={{ display: 'flex', gap: '5px', flex: 1 }} onClick={(e) => e.stopPropagation()}>
-                                                <input
-                                                    autoFocus
-                                                    style={{ ...fullInputStyle, padding: '5px 10px', fontSize: '0.8rem' }}
-                                                    value={editingLabelText}
-                                                    onChange={(e) => setEditingLabelText(e.target.value)}
-                                                    onKeyDown={(e) => e.key === 'Enter' && handleUpdateLabel(l.id)}
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => { e.stopPropagation(); handleUpdateLabel(l.id); }}
-                                                    style={{ border: 'none', background: '#10b981', color: '#fff', borderRadius: '4px', padding: '5px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                                                >
-                                                    <Check size={14} />
-                                                </button>
+                                <Reorder.Group axis="y" values={labels} onReorder={handleReorder} style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                                    {labels.map(l => (
+                                        <Reorder.Item
+                                            key={l.id}
+                                            value={l}
+                                            onClick={() => { setSelectedLabelId(l.id); setIsBuilding(false); }}
+                                            style={{
+                                                ...itemRowStyle,
+                                                background: selectedLabelId === l.id ? 'linear-gradient(135deg, #ffffff 0%, #fff1f1 100%)' : '#fff',
+                                                borderColor: selectedLabelId === l.id ? '#e11919' : '#f1f5f9',
+                                                cursor: 'grab'
+                                            }}
+                                            whileDrag={{ scale: 1.02, boxShadow: '0 10px 30px rgba(0,0,0,0.1)', cursor: 'grabbing' }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                                                <div style={{ color: '#cbd5e1', cursor: 'grab' }}><GripVertical size={18} /></div>
+                                                {editingLabelId === l.id ? (
+                                                    <div style={{ display: 'flex', gap: '5px', flex: 1 }} onClick={(e) => e.stopPropagation()}>
+                                                        <input
+                                                            autoFocus
+                                                            style={{ ...fullInputStyle, padding: '5px 10px', fontSize: '0.8rem' }}
+                                                            value={editingLabelText}
+                                                            onChange={(e) => setEditingLabelText(e.target.value)}
+                                                            onKeyDown={(e) => e.key === 'Enter' && handleUpdateLabel(l.id)}
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => { e.stopPropagation(); handleUpdateLabel(l.id); }}
+                                                            style={{ border: 'none', background: '#10b981', color: '#fff', borderRadius: '4px', padding: '5px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                                        >
+                                                            <Check size={14} />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <span style={{ fontWeight: 700, color: selectedLabelId === l.id ? '#1e293b' : '#64748b', fontSize: '0.85rem' }}>{l.filter_label}</span>
+                                                )}
                                             </div>
-                                        ) : (
-                                            <span style={{ fontWeight: 700, color: selectedLabelId === l.id ? '#1e293b' : '#64748b', fontSize: '0.85rem' }}>{l.filter_label}</span>
-                                        )}
 
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <button onClick={(e) => { e.stopPropagation(); setEditingLabelId(l.id); setEditingLabelText(l.filter_label); }} style={editBtnStyle}><Edit2 size={14} /></button>
-                                            <button onClick={(e) => handleDeleteLabel(l.id, e)} style={deleteBtnStyle}><Trash2 size={14} /></button>
-                                            <ChevronRight size={16} color={selectedLabelId === l.id ? '#e11919' : '#cbd5e1'} />
-                                        </div>
-                                    </motion.div>
-                                ))}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <button onClick={(e) => { e.stopPropagation(); setEditingLabelId(l.id); setEditingLabelText(l.filter_label); }} style={editBtnStyle}><Edit2 size={14} /></button>
+                                                <button onClick={(e) => handleDeleteLabel(l.id, e)} style={deleteBtnStyle}><Trash2 size={14} /></button>
+                                                <ChevronRight size={16} color={selectedLabelId === l.id ? '#e11919' : '#cbd5e1'} />
+                                            </div>
+                                        </Reorder.Item>
+                                    ))}
+                                </Reorder.Group>
                                 {labels.length === 0 && !isBuilding && <div style={emptyHintStyle}>No labels found. Click "New Filter" to start.</div>}
                             </div>
                         </div>
@@ -330,35 +357,46 @@ const FilterSettings = () => {
                                     </div>
 
                                     <div style={listScrollStyle}>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '15px' }}>
+                                        <Reorder.Group axis="y" values={values} onReorder={handleReorderValues} style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                             {values.map(v => (
-                                                <div key={v.id} style={tagBoxStyle}>
-                                                    {editingValueId === v.id ? (
-                                                        <input
-                                                            autoFocus type="text"
-                                                            style={{ ...fullInputStyle, border: 'none', background: 'transparent', padding: 0 }}
-                                                            value={editingValueText}
-                                                            onChange={(e) => setEditingValueText(e.target.value)}
-                                                            onBlur={() => handleUpdateValue(v.id)}
-                                                            onKeyDown={(e) => e.key === 'Enter' && handleUpdateValue(v.id)}
-                                                        />
-                                                    ) : (
-                                                        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#334155' }}>{v.filter_value}</span>
-                                                    )}
+                                                <Reorder.Item
+                                                    key={v.id}
+                                                    value={v}
+                                                    style={{
+                                                        ...tagBoxStyle,
+                                                        background: '#fff',
+                                                        cursor: 'grab'
+                                                    }}
+                                                    whileDrag={{ scale: 1.02, boxShadow: '0 10px 30px rgba(0,0,0,0.1)', cursor: 'grabbing' }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                                                        <div style={{ color: '#cbd5e1', cursor: 'grab' }}><GripVertical size={16} /></div>
+                                                        {editingValueId === v.id ? (
+                                                            <input
+                                                                autoFocus type="text"
+                                                                style={{ ...fullInputStyle, border: 'none', background: 'transparent', padding: 0 }}
+                                                                value={editingValueText}
+                                                                onChange={(e) => setEditingValueText(e.target.value)}
+                                                                onBlur={() => handleUpdateValue(v.id)}
+                                                                onKeyDown={(e) => e.key === 'Enter' && handleUpdateValue(v.id)}
+                                                            />
+                                                        ) : (
+                                                            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#334155' }}>{v.filter_value}</span>
+                                                        )}
+                                                    </div>
 
                                                     <div style={{ display: 'flex', gap: '8px' }}>
                                                         <button onClick={() => { setEditingValueId(v.id); setEditingValueText(v.filter_value); }} style={{ border: 'none', background: 'none', color: '#94a3b8', cursor: 'pointer' }}><Edit2 size={13} /></button>
                                                         <button onClick={() => handleDeleteValue(v.id)} style={{ border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={13} /></button>
                                                     </div>
-                                                </div>
+                                                </Reorder.Item>
                                             ))}
-                                            {values.length === 0 && <div style={emptyHintStyle}>No values found for this label.</div>}
-                                        </div>
+                                        </Reorder.Group>
+                                        {values.length === 0 && <div style={emptyHintStyle}>No values found for this label.</div>}
                                     </div>
                                 </motion.div>
                             )}
                         </div>
-
                     </div>
                 )}
             </div>

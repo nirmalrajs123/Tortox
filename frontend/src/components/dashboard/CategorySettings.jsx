@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Edit, Trash2 } from 'lucide-react';
 import { categoryService } from '../../services/category';
+import { useSwag } from '../../context/SwagContext';
 
 const CategorySettings = () => {
+    const { showAlert } = useSwag();
     const [categories, setCategories] = useState([]);
     const [newCategory, setNewCategory] = useState('');
     const [editingId, setEditingId] = useState(null);
@@ -27,8 +29,10 @@ const CategorySettings = () => {
             await categoryService.create({ category_name: newCategory, parent_id: 0 });
             setNewCategory('');
             loadCategories();
+            showAlert('Category added successfully', 'success');
         } catch (err) {
             console.error(err);
+            showAlert(err.response?.data?.message || 'Failed to add category', 'error');
         }
     };
 
@@ -37,8 +41,10 @@ const CategorySettings = () => {
         try {
             await categoryService.delete(id);
             loadCategories();
+            showAlert('Category moved to bin', 'success');
         } catch (err) {
             console.error(err);
+            showAlert(err.response?.data?.message || 'Failed to delete category', 'error');
         }
     };
 
@@ -47,14 +53,16 @@ const CategorySettings = () => {
             await categoryService.update(id, { category_name: editValue, parent_id: 0 });
             setEditingId(null);
             loadCategories();
+            showAlert('Category updated', 'success');
         } catch (err) {
             console.error(err);
+            showAlert(err.response?.data?.message || 'Update failed', 'error');
         }
     };
 
     return (
-        <div style={{ background: '#fff', padding: '2rem', borderRadius: '16px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '1.5rem', color: '#111827' }}>Category Management</h3>
+        <div style={{ background: 'var(--bg-primary)', padding: '2rem', borderRadius: '24px', border: '1px solid var(--border-ghost)', boxShadow: '0 20px 50px rgba(0,0,0,0.15)' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 900, marginBottom: '1.5rem', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '1px' }}>Category Management</h3>
 
             <div style={{ display: 'flex', gap: '10px', marginBottom: '2rem' }}>
                 <input
@@ -62,7 +70,7 @@ const CategorySettings = () => {
                     placeholder="New Category Name..."
                     value={newCategory}
                     onChange={(e) => setNewCategory(e.target.value)}
-                    style={inputStyle}
+                    style={{ ...inputStyle, background: 'var(--bg-secondary)', color: 'var(--text-main)', border: '1px solid var(--border-ghost)' }}
                 />
                 <button onClick={handleAdd} style={btnStyle}>
                     <Plus size={18} /> Add
@@ -71,16 +79,16 @@ const CategorySettings = () => {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {categories.map(cat => (
-                    <div key={cat.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                    <div key={cat.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: 'var(--bg-secondary)', borderRadius: '14px', border: '1px solid var(--border-ghost)', transition: 'all 0.2s' }}>
                         {editingId === cat.id ? (
                             <input
                                 type="text"
                                 value={editValue}
                                 onChange={(e) => setEditValue(e.target.value)}
-                                style={{ ...inputStyle, padding: '6px 10px' }}
+                                style={{ ...inputStyle, padding: '8px 12px', background: 'var(--bg-primary)', color: 'var(--text-main)', border: '1px solid var(--accent-primary)' }}
                             />
                         ) : (
-                            <span style={{ fontWeight: 600, color: '#111827' }}>{cat.category_name}</span>
+                            <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.95rem' }}>{cat.category_name}</span>
                         )}
 
                         <div style={{ display: 'flex', gap: '8px' }}>

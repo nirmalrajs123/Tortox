@@ -4,7 +4,7 @@ const {
     getProducts, getProductById, getCategories, addProduct, getSpecLabels, addSpecLabel, deleteSpecLabel,
     deleteProduct, updateProduct, getFilterLabels, addFilterLabel, deleteFilterLabel,
     getFilterValues, addFilterValue, deleteFilterValue, getFilterConfig, saveFullFilter,
-    updateFilterLabel, updateFilterValue, toggleProductHot, toggleProductNew, toggleProductActive
+    updateFilterLabel, updateFilterValue, toggleProductHot, toggleProductNew, toggleProductActive, updateFilterLabelOrder, updateFilterValueOrder
 } = require('../controllers/productController');
 const upload = require('../utils/multerConfig');
 
@@ -14,6 +14,8 @@ router.put('/products/:id/toggle-new', toggleProductNew);
 router.put('/products/:id/toggle-active', toggleProductActive);
 
 // Dynamic Filters Config
+router.put('/reorder-filters', updateFilterLabelOrder);
+router.put('/reorder-filter-values', updateFilterValueOrder);
 router.get('/filter-labels/:category_id', getFilterLabels);
 router.post('/filter-labels', addFilterLabel);
 router.delete('/filter-labels/:id', deleteFilterLabel);
@@ -25,8 +27,7 @@ router.put('/filter-values/:id', updateFilterValue);
 router.get('/filter-config/:category_id', getFilterConfig);
 router.post('/save-full-filter', saveFullFilter);
 
-// Categories
-router.get('/categories', getCategories);
+// Categories consolidated in categoryRoutes
 
 // Other Routes
 router.get('/products', getProducts);

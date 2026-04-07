@@ -21,4 +21,6 @@ export const productService = {
     toggleHot: (id) => api.put(`/products/${id}/toggle-hot`),
     toggleNew: (id) => api.put(`/products/${id}/toggle-new`),
     toggleActive: (id) => api.put(`/products/${id}/toggle-active`),
+    reorderFilterLabels: (data) => api.put('/reorder-filters', data),
+    reorderFilterValues: (data) => api.put('/reorder-filter-values', data),
 };
