@@ -51,6 +51,9 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
     const [isVariantModalOpen, setIsVariantModalOpen] = useState(false);
     const [editingVariantIdx, setEditingVariantIdx] = useState(null);
 
+    // 🔍 Image Preview Modal State
+    const [imagePreviewSrc, setImagePreviewSrc] = useState(null);
+
     // 🧼 Manual State Additions flawed flawless flaw flawlessly setup 
     const handleAddCombination = () => {
         setCombinations(prev => [...prev, {
@@ -253,8 +256,12 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
             }
 
             if (productToEdit.product_features) {
-                const feats = productToEdit.product_features.split('\n');
-                if (feats.length > 0) setFeatures(feats);
+                try {
+                    const feats = typeof productToEdit.product_features === 'string' 
+                        ? productToEdit.product_features.split('\n') 
+                        : (Array.isArray(productToEdit.product_features) ? productToEdit.product_features : []);
+                    if (feats.length > 0) setFeatures(feats);
+                } catch (e) { console.error('Error parsing product_features', e); }
             }
 
             const specsArray = productToEdit && Array.isArray(productToEdit.specifications) ? productToEdit.specifications : [];
@@ -269,16 +276,30 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
             }
 
             const productCombs = productToEdit.combinations || productToEdit.variants;
-            if (productCombs && productCombs.length > 0) {
-                const hydratedCombs = productCombs.map(c => ({
-                    ...c,
-                    features: (c.features || []).map(f => typeof f === 'string' ? { id: crypto.randomUUID(), text: f } : f),
-                    previews: (c.previews || []).map(p => {
-                        if (!p) return '';
-                        if (p.startsWith('http')) return p;
-                        return `http://${window.location.hostname}:5000${p.startsWith('/') ? '' : '/'}${p}`;
-                    })
-                }));
+            if (productCombs && Array.isArray(productCombs) && productCombs.length > 0) {
+                const hydratedCombs = productCombs.map(c => {
+                    let feats = c.features || [];
+                    if (typeof feats === 'string') {
+                        try { feats = JSON.parse(feats); } catch (e) { feats = []; }
+                    }
+                    if (!Array.isArray(feats)) feats = [];
+
+                    let prevs = c.previews || [];
+                    if (typeof prevs === 'string') {
+                        try { prevs = JSON.parse(prevs); } catch (e) { prevs = []; }
+                    }
+                    if (!Array.isArray(prevs)) prevs = [];
+
+                    return {
+                        ...c,
+                        features: feats.map(f => typeof f === 'string' ? { id: Math.random().toString(36).substring(2, 11), text: f } : f),
+                        previews: prevs.map(p => {
+                            if (!p) return '';
+                            if (p.startsWith('http') || p.startsWith('blob')) return p;
+                            return `http://${window.location.hostname}:5000${p.startsWith('/') ? '' : '/'}${p}`;
+                        })
+                    };
+                });
                 setCombinations(hydratedCombs);
                 const hasColor = productCombs.some(c => c.Color !== undefined && c.Color !== null && c.Color !== '');
                 const hasSize = productCombs.some(c => c.Size !== undefined && c.Size !== null && c.Size !== '');
@@ -798,7 +819,7 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
                                                                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                                                                             {comb.previews && comb.previews.map((preview, i) => (
                                                                                 <div key={i} style={{ position: 'relative', width: '45px', height: '45px' }}>
-                                                                                    <img src={preview} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+                                                                                    <img src={preview} onClick={() => setImagePreviewSrc(preview)} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.15s ease' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.15)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'} />
 
                                                                                     {i > 0 && (
                                                                                         <button type="button" onClick={() => {
@@ -1458,6 +1479,48 @@ const AddProductModal = ({ isOpen, onClose, onSuccess, productToEdit }) => {
                                 <button type="button" onClick={() => setIsVariantModalOpen(false)} style={{ padding: '16px 60px', background: 'linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%)', color: '#fff', border: 'none', borderRadius: '18px', fontWeight: 900, cursor: 'pointer', fontSize: '1.1rem', boxShadow: '0 15px 35px rgba(225,25,25,0.2)' }} className="btn-glowing">Done Configuring</button>
                             </div>
                         </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* 🔍 Image Preview Popup Modal */}
+            <AnimatePresence>
+                {imagePreviewSrc && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setImagePreviewSrc(null)}
+                        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(20px)', zIndex: 999999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}
+                    >
+                        <motion.img
+                            initial={{ scale: 0.85, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.85, opacity: 0 }}
+                            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                            src={imagePreviewSrc}
+                            alt="Full Preview"
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: '16px', boxShadow: '0 30px 80px rgba(0,0,0,0.5)', cursor: 'default' }}
+                        />
+                        <button
+                            onClick={() => setImagePreviewSrc(null)}
+                            style={{ position: 'absolute', top: '30px', right: '30px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', width: '48px', height: '48px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s', backdropFilter: 'blur(10px)' }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.8)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                        >
+                            <X size={22} />
+                        </button>
+                        <a
+                            href={imagePreviewSrc}
+                            download="tortox_preview.jpg"
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px', background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '30px', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 700, backdropFilter: 'blur(10px)', transition: 'all 0.2s' }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                        >
+                            <Download size={16} /> Download
+                        </a>
                     </motion.div>
                 )}
             </AnimatePresence>

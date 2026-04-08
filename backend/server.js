@@ -7,6 +7,7 @@ const productRoutes = require('./routes/productRoutes');
 const authRoutes = require('./routes/authRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const bannerRoutes = require('./routes/bannerRoutes');
+const aplusRoutes = require('./routes/aplusRoutes');
 
 console.log("[BOOT] STAGE 1: IMPORTS_OK");
 
@@ -39,6 +40,7 @@ app.use('/api', productRoutes);
 app.use('/api', authRoutes);
 app.use('/api', categoryRoutes);
 app.use('/api', bannerRoutes);
+app.use('/api', aplusRoutes);
 console.log("[BOOT] STAGE 5: REGIONAL_ROUTES_MOUNTED");
 
 app.get('/api/test', (req, res) => res.json({ status: "API IS ALIVE" }));

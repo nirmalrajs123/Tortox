@@ -25,6 +25,7 @@ import TortoxLogo from './TortoxLogo';
 import AddProductModal from './product';
 import CategorySettings from './dashboard/CategorySettings';
 import SpecificationsSettings from './dashboard/SpecificationsSettings';
+import APlusSettingsModal from './dashboard/APlusSettingsModal';
 
 import FilterSettings from './dashboard/FilterSettings';
 import PartnerSettings from './dashboard/PartnerSettings';
@@ -43,6 +44,8 @@ const Dashboard = () => {
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [confirmModal, setConfirmModal] = useState({ show: false, id: null, title: '' });
     const [showViewModal, setShowViewModal] = useState(false);
+    const [showAPlusModal, setShowAPlusModal] = useState(false);
+    const [aplusProduct, setAplusProduct] = useState(null);
 
     const loadProducts = async () => {
         try {
@@ -69,15 +72,19 @@ const Dashboard = () => {
     };
 
     const handleEdit = async (id) => {
+        console.log(`[DASHBOARD] Triggering edit for product ID: ${id}`);
         try {
             const res = await productService.getById(id);
+            console.log('[DASHBOARD] Product data received:', res.data);
             if (res.data && res.data.success) {
                 setSelectedProduct(res.data.data);
                 setShowAddForm(true);
+            } else {
+                alert('Failed to load product details: ' + (res.data?.message || 'Unknown error'));
             }
         } catch (e) {
-            console.error(e);
-            alert('Failed to load product details');
+            console.error('[DASHBOARD] Edit fetch failed:', e);
+            alert('Failed to load product details. Check console for details.');
         }
     };
 
@@ -309,7 +316,7 @@ const Dashboard = () => {
                                                                     </div>
                                                                 </td>
                                                                 <td style={{ padding: '20px 24px' }}>
-                                                                    <div style={{ display: 'flex', gap: '12px' }}>
+                                                                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                                                                         <motion.button
                                                                             whileHover={{ scale: 1.05, background: prod.is_active === false ? 'rgba(148, 163, 184, 0.1)' : 'rgba(16, 185, 129, 0.1)' }}
                                                                             whileTap={{ scale: 0.95 }}
@@ -356,6 +363,22 @@ const Dashboard = () => {
                                                                             }}
                                                                         >
                                                                             <Sparkles size={16} fill={prod.is_new ? '#38bdf8' : 'none'} />
+                                                                        </motion.button>
+
+                                                                        <motion.button
+                                                                            whileHover={{ scale: 1.05, background: 'rgba(56, 189, 248, 0.1)', color: '#0ea5e9' }}
+                                                                            whileTap={{ scale: 0.95 }}
+                                                                            onClick={() => { setAplusProduct(prod); setShowAPlusModal(true); }}
+                                                                            title="Manage A+ Marketing Content"
+                                                                            style={{
+                                                                                padding: '8px', borderRadius: '10px',
+                                                                                background: 'rgba(56, 189, 248, 0.1)',
+                                                                                color: '#0ea5e9',
+                                                                                border: '1px solid #bae6fd',
+                                                                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s'
+                                                                            }}
+                                                                        >
+                                                                            <Sparkles size={16} />
                                                                         </motion.button>
 
                                                                         <motion.button
@@ -423,6 +446,12 @@ const Dashboard = () => {
             </div>
 
             <AddProductModal isOpen={showAddForm} onClose={() => { setShowAddForm(false); setSelectedProduct(null); }} onSuccess={loadProducts} productToEdit={selectedProduct} />
+            <APlusSettingsModal 
+                isOpen={showAPlusModal} 
+                onClose={() => { setShowAPlusModal(false); setAplusProduct(null); }} 
+                productId={aplusProduct?.id} 
+                productName={aplusProduct?.modal || aplusProduct?.product_name} 
+            />
             {/* 🛡️ Modern Confirm Modal */}
             <AnimatePresence>
                 {confirmModal.show && (

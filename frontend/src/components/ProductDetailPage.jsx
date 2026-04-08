@@ -2,14 +2,18 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { productService } from '../services/product';
+import { aplusService } from '../services/aplus';
 import {
     ChevronLeft,
     ChevronRight,
+    ChevronUp,
+    ChevronDown,
     Check,
     Maximize2,
     Download,
     Search,
-    FileText
+    FileText,
+    LayoutGrid
 } from 'lucide-react';
 import Navbar from './Navbar';
 import Footer from './Footer';
@@ -66,12 +70,64 @@ const StructuredData = ({ product }) => {
     );
 };
 
+const ImageMagnifier = ({ src, alt }) => {
+    const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+    const [isHovering, setIsHovering] = useState(false);
+    const zoomLevel = 2.5;
+
+    const handleMouseMove = (e) => {
+        const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+        const x = ((e.pageX - left - window.pageXOffset) / width) * 100;
+        const y = ((e.pageY - top - window.pageYOffset) / height) * 100;
+        setMousePos({ x, y });
+    };
+
+    return (
+        <div
+            style={{
+                position: 'relative',
+                width: '100%',
+                height: '100%',
+                overflow: 'hidden',
+                background: '#fff',
+                borderRadius: '16px',
+                cursor: 'zoom-in'
+            }}
+            onMouseEnter={() => setIsHovering(true)}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={() => setIsHovering(false)}
+        >
+            <motion.img
+                key={src}
+                src={src}
+                alt={alt}
+                animate={{
+                    scale: isHovering ? zoomLevel : 1,
+                    transformOrigin: `${mousePos.x}% ${mousePos.y}%`
+                }}
+                transition={{ type: 'tween', ease: 'easeOut', duration: 0.2 }}
+                style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover'
+                }}
+            />
+            {!isHovering && (
+                <div style={{ position: 'absolute', bottom: '20px', right: '20px', background: 'rgba(255,255,255,0.8)', padding: '10px', borderRadius: '50%', backdropFilter: 'blur(4px)', color: '#1d1d1f' }}>
+                    <Search size={18} />
+                </div>
+            )}
+        </div>
+    );
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 const ProductDetailPage = ({ usesSlug }) => {
     const { id, slug } = useParams();
     const navigate = useNavigate();
     const identifier = usesSlug ? slug : id;
     const [product, setProduct] = useState(null);
+    const [aplusContents, setAplusContents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('View');
     const [activeVariantIndex, setActiveVariantIndex] = useState(-1);
@@ -79,6 +135,7 @@ const ProductDetailPage = ({ usesSlug }) => {
     const [selectedStyle, setSelectedStyle] = useState('');
     const [activeImage, setActiveImage] = useState(0);
     const [isAtTop, setIsAtTop] = useState(false);
+    const [galleryIndex, setGalleryIndex] = useState(0);
     const sentinelRef = useRef(null);
 
     const sectionRefs = {
@@ -96,14 +153,19 @@ const ProductDetailPage = ({ usesSlug }) => {
     };
 
     useEffect(() => {
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                setIsAtTop(entry.boundingClientRect.top < 0);
-            },
-            { threshold: [1] }
-        );
-        if (sentinelRef.current) observer.observe(sentinelRef.current);
-        return () => { if (sentinelRef.current) observer.unobserve(sentinelRef.current); };
+        const handleScroll = () => {
+            if (sentinelRef.current) {
+                // If the top of the sentinel goes past the top of the viewport
+                const rect = sentinelRef.current.getBoundingClientRect();
+                setIsAtTop(rect.top <= 0);
+            }
+        };
+
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        // Trigger initially
+        handleScroll();
+
+        return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
     useEffect(() => {
@@ -117,6 +179,15 @@ const ProductDetailPage = ({ usesSlug }) => {
                     setActiveVariantIndex(0);
                     setSelectedSize(data.variants[0].Size || '');
                     setSelectedStyle(data.variants[0].Style || '');
+                }
+
+                if (data?.id) {
+                    try {
+                        const aplusRes = await aplusService.getForProduct(data.id);
+                        setAplusContents(aplusRes.data?.data || []);
+                    } catch (aplusErr) {
+                        console.error('Failed to fetch A+ Content:', aplusErr);
+                    }
                 }
             } catch (err) {
                 console.error('Failed to fetch product:', err);
@@ -178,9 +249,69 @@ const ProductDetailPage = ({ usesSlug }) => {
     const categoryName = (product.category_name || 'PC CASE').toUpperCase();
     const accentColor = '#ff6b00'; // darkFlash Orange
 
+    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+
+    const handleDownloadAll = async () => {
+        if (!allImages || allImages.length === 0) return;
+        
+        for (let i = 0; i < allImages.length; i++) {
+            const url = allImages[i];
+            try {
+                const response = await fetch(url);
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = `${product.modal || 'tortox'}_gallery_${i + 1}.jpg`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(blobUrl);
+                // Pause slightly to prevent the browser from blocking multiple simultaneous downloads
+                await new Promise(r => setTimeout(r, 250));
+            } catch (err) {
+                console.error("Failed to download image", url, err);
+            }
+        }
+    };
+
     return (
         <div style={{ background: '#ffffff', minHeight: '100vh', color: '#1d1d1f' }}>
             <StructuredData product={product} />
+
+            {/* LIGHTBOX MODAL TRIGGERED BY VIEW ALL IMAGES */}
+            <AnimatePresence>
+                {isLightboxOpen && (
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        style={{ position: 'fixed', inset: 0, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(15px)', zIndex: 100000, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}
+                    >
+                        <div style={{ position: 'sticky', top: 0, padding: '20px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.9)', zIndex: 10, borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
+                            <h2 style={{ fontSize: '1.4rem', fontWeight: 900, color: '#111827', textTransform: 'uppercase', letterSpacing: '2px' }}>Product Gallery / <span style={{ color: '#ff9800' }}>{allImages.length} ITEMS</span></h2>
+                            <button onClick={() => setIsLightboxOpen(false)} style={{ background: '#f1f5f9', color: '#64748b', border: 'none', borderRadius: '50%', width: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }} onMouseEnter={(e) => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = '#ef4444'; }} onMouseLeave={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#64748b'; }}>
+                                <X size={24} />
+                            </button>
+                        </div>
+                        <div style={{ padding: '40px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px', maxWidth: '1600px', margin: '0 auto', width: '100%' }}>
+                            {allImages.map((src, index) => (
+                                <motion.div 
+                                    key={index} 
+                                    initial={{ opacity: 0, y: 20 }} 
+                                    animate={{ opacity: 1, y: 0 }} 
+                                    transition={{ delay: index * 0.05 }}
+                                    onClick={() => { setGalleryIndex(index); setIsLightboxOpen(false); window.scrollTo({ top: document.getElementById('tortox-galleries-section').offsetTop - 100, behavior: 'smooth' }); }}
+                                    style={{ background: '#000', borderRadius: '16px', overflow: 'hidden', aspectRatio: '1/1', position: 'relative', cursor: 'zoom-in', boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}
+                                >
+                                    <img src={src} alt={`Gallery grid ${index}`} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.9, transition: 'transform 0.4s ease, opacity 0.4s ease' }} onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.opacity = '1'; }} onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.opacity = '0.9'; }} />
+                                    <div style={{ position: 'absolute', bottom: '15px', right: '15px', background: 'rgba(0,0,0,0.5)', color: '#fff', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 700, backdropFilter: 'blur(5px)' }}>IMG-{index + 1}</div>
+                                </motion.div>
+                            ))}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
             <Navbar theme="light" fixed={false} />
 
             {/* ── BREADCRUMB ── */}
@@ -207,42 +338,63 @@ const ProductDetailPage = ({ usesSlug }) => {
             </div>
 
             {/* ── SECTION: VIEW (Main Product Content) ── */}
-            <div ref={sectionRefs.View} style={{ maxWidth: '1440px', margin: '0 auto', padding: '60px 80px', display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: '100px' }}>
+            <div ref={sectionRefs.View} style={{ maxWidth: '1600px', margin: '0 auto', padding: '40px 60px', display: 'grid', gridTemplateColumns: 'minmax(0, 1.5fr) minmax(0, 1fr)', gap: '60px' }}>
                 {/* LEFT COLUMN: GALLERY */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
-                    <div style={{ width: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ display: 'flex', gap: '40px', alignItems: 'flex-start' }}>
+                    {/* Vertical Thumbnails */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
+                        <div style={{ cursor: 'pointer', opacity: 0.5 }}><ChevronUp size={20} /></div>
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '12px',
+                            maxHeight: '650px',
+                            overflowY: 'auto',
+                            padding: '5px',
+                            scrollbarWidth: 'none',
+                            msOverflowStyle: 'none'
+                        }}>
+                            {allImages.map((img, i) => (
+                                <div
+                                    key={i}
+                                    onClick={() => setActiveImage(i)}
+                                    style={{
+                                        width: '80px',
+                                        height: '80px',
+                                        borderRadius: '12px',
+                                        border: i === activeImage ? '2px solid #1d1d1f' : '1px solid #d2d2d7',
+                                        padding: '4px',
+                                        cursor: 'pointer',
+                                        background: '#fff',
+                                        flexShrink: 0,
+                                        transition: 'all 0.2s',
+                                        boxShadow: i === activeImage ? '0 4px 12px rgba(0,0,0,0.08)' : 'none'
+                                    }}
+                                >
+                                    <img src={img} alt={`Thumb ${i}`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                </div>
+                            ))}
+                        </div>
+                        <div style={{ cursor: 'pointer', opacity: 0.5 }}><ChevronDown size={20} /></div>
+                    </div>
+
+                    {/* Main Image View */}
+                    <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <button
                             onClick={() => setActiveImage(prev => (prev > 0 ? prev - 1 : allImages.length - 1))}
-                            style={{ position: 'absolute', left: '-40px', background: '#f5f5f7', border: 'none', width: '44px', height: '44px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#86868b' }}
+                            style={{ position: 'absolute', left: '20px', background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(10px)', border: 'none', width: '50px', height: '50px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1d1d1f', zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                         >
-                            <ChevronLeft size={24} />
+                            <ChevronLeft size={28} />
                         </button>
-                        <div style={{ width: '100%', aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                            <motion.img
-                                key={activeImage}
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                src={allImages[activeImage]}
-                                alt={pageTitle}
-                                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                            />
-                            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'none', opacity: 0.8 }}>
-                                <Search size={20} color="#d2d2d7" />
-                            </div>
+                        <div style={{ width: '100%', height: '700px', background: '#fbfbfb', borderRadius: '24px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                            <ImageMagnifier src={allImages[activeImage]} alt={pageTitle} />
                         </div>
                         <button
                             onClick={() => setActiveImage(prev => (prev < allImages.length - 1 ? prev + 1 : 0))}
-                            style={{ position: 'absolute', right: '-40px', background: '#f5f5f7', border: 'none', width: '44px', height: '44px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#86868b' }}
+                            style={{ position: 'absolute', right: '20px', background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(10px)', border: 'none', width: '50px', height: '50px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1d1d1f', zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                         >
-                            <ChevronRight size={24} />
+                            <ChevronRight size={28} />
                         </button>
-                    </div>
-                    <div style={{ display: 'flex', gap: '12px', marginTop: '40px', overflowX: 'auto', maxWidth: '100%', padding: '10px 0', scrollbarWidth: 'none', justifyContent: 'center' }}>
-                        {allImages.map((img, i) => (
-                            <div key={i} onClick={() => setActiveImage(i)} style={{ width: '64px', height: '64px', borderRadius: '12px', border: i === activeImage ? '2px solid #1d1d1f' : '1px solid #d2d2d7', padding: '4px', cursor: 'pointer', background: '#fff', flexShrink: 0, transition: 'all 0.2s', boxShadow: i === activeImage ? '0 4px 12px rgba(0,0,0,0.08)' : 'none' }}>
-                                <img src={img} alt={`Thumb ${i}`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                            </div>
-                        ))}
                     </div>
                 </div>
 
@@ -306,31 +458,37 @@ const ProductDetailPage = ({ usesSlug }) => {
                                 </div>
                             </div>
                         )}
-                        <button onClick={() => navigate('/contact')} style={{ marginTop: '10px', padding: '14px 40px', background: '#1d1d1f', borderRadius: '25px', display: 'inline-flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', color: '#fff', border: 'none', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', fontSize: '0.85rem', width: 'fit-content' }}>Shop Now</button>
+                        <motion.button 
+                            whileHover={{ scale: 1.05, background: '#e11919' }} 
+                            whileTap={{ scale: 0.95 }} 
+                            onClick={() => navigate('/contact')} 
+                            style={{ marginTop: '10px', padding: '14px 40px', background: '#1d1d1f', borderRadius: '25px', display: 'inline-flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', color: '#fff', border: 'none', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', fontSize: '0.85rem', width: 'fit-content', transition: 'background 0.2s' }}
+                        >
+                            Shop Now
+                        </motion.button>
                     </div>
                 </div>
             </div>
 
-            {/* 🛠️ Industrial Control Strip (Navigation Highlights) */}
-            <div style={{ position: 'relative', marginTop: '60px' }}>
-                <div ref={sentinelRef} style={{ position: 'absolute', top: 0, height: '1px', width: '100%', pointerEvents: 'none' }} />
-                <div style={{
-                    borderTop: '1px solid #f2f2f2',
-                    borderBottom: '1px solid #f2f2f2',
-                    background: 'rgba(255, 255, 255, 0.98)',
-                    backdropFilter: 'blur(10px)',
-                    height: '70px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '0 8%',
-                    position: 'sticky',
-                    top: 0,
-                    zIndex: 100,
-                    boxShadow: isAtTop ? '0 10px 40px rgba(0,0,0,0.06)' : 'none'
-                }}>
+            {/* 🛠️ Sticky Navigation Strip (Unified Scroll Parent) */}
+            <div ref={sentinelRef} style={{ height: '1px', width: '100%', marginTop: '60px' }} />
+            <div style={{
+                borderTop: '1px solid #f2f2f2',
+                borderBottom: '1px solid #f2f2f2',
+                background: 'rgba(255, 255, 255, 0.98)',
+                backdropFilter: 'blur(10px)',
+                height: '70px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '0 8%',
+                position: 'sticky',
+                top: 0,
+                zIndex: 1000,
+                boxShadow: isAtTop ? '0 10px 40px rgba(0,0,0,0.06)' : 'none'
+            }}>
                 <div style={{ display: 'flex', gap: '60px', height: '100%' }}>
-                    {['View', 'Views', 'Description', 'Spec', 'Galleries', 'Downloadables'].map(tab => (
+                    {['product', 'Views', 'Description', 'Spec', 'Galleries', 'Downloadables'].map(tab => (
                         <div
                             key={tab}
                             onClick={() => scrollToSection(tab)}
@@ -358,18 +516,32 @@ const ProductDetailPage = ({ usesSlug }) => {
                 <AnimatePresence>
                     {isAtTop && (
                         <motion.button
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: 20 }}
+                            initial={{ opacity: 0, x: 20, scale: 0.9 }}
+                            animate={{ opacity: 1, x: 0, scale: 1 }}
+                            exit={{ opacity: 0, x: 20, scale: 0.9 }}
+                            whileHover={{ scale: 1.05, background: '#e11919' }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={() => navigate('/contact')}
-                            style={{ padding: '10px 32px', background: '#1d1d1f', borderRadius: '100px', color: '#fff', border: 'none', fontWeight: 900, textTransform: 'uppercase', fontSize: '0.75rem', cursor: 'pointer', letterSpacing: '1px' }}
+                            style={{
+                                padding: '12px 36px',
+                                background: '#1d1d1f',
+                                borderRadius: '100px',
+                                color: '#fff',
+                                border: 'none',
+                                fontWeight: 800,
+                                textTransform: 'uppercase',
+                                fontSize: '0.8rem',
+                                cursor: 'pointer',
+                                letterSpacing: '1.5px',
+                                boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+                                marginLeft: 'auto' // Force to right end
+                            }}
                         >
                             Shop Now
                         </motion.button>
                     )}
                 </AnimatePresence>
             </div>
-          </div>
 
             {/* ── SECTION: VIEWS (Perspectives) ── */}
             <div ref={sectionRefs.Views} style={{ maxWidth: '1440px', margin: '0 auto', padding: '100px 80px', borderBottom: '1px solid #f2f2f2' }}>
@@ -377,17 +549,24 @@ const ProductDetailPage = ({ usesSlug }) => {
                     <h2 className="apple-gradient" style={{ fontSize: '3.5rem', fontWeight: 900, marginBottom: '20px' }}>Studio Perspectives</h2>
                     <p style={{ fontSize: '1.2rem', color: '#86868b' }}>Every detail captured from our engineering desk to your screen.</p>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', padding: '20px' }}>
-                    {allImages.slice(0, 8).map((img, i) => (
-                        <div key={i} style={{ background: '#ffffff', borderRadius: '24px', overflow: 'hidden', aspectRatio: '1/1', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '30px', border: '1px solid #f2f2f2', boxShadow: '0 10px 30px rgba(0,0,0,0.02)' }}>
-                            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                                <img src={img} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-                            </div>
-                            <span style={{ marginTop: '20px', fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '2px', color: i === 0 ? accentColor : '#86868b' }}>{i === 0 ? 'Master Angle' : `Perspective 0${i + 1}`}</span>
-                        </div>
+
+            </div>
+
+            {/* ── SECTION: A+ MARKETING CAPTURES (Vertical Poster) ── */}
+            {aplusContents.length > 0 && (
+                <div style={{ width: '100%', background: '#fff', borderBottom: '1px solid #f2f2f2', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    {aplusContents.map(block => (
+                        block.image_paths?.map((path, idx) => (
+                            <img
+                                key={`${block.id}-${idx}`}
+                                src={normalizePath(path)}
+                                alt="Marketing Detail"
+                                style={{ width: '100%', maxWidth: '1920px', display: 'block', margin: 0, padding: 0, objectFit: 'cover' }}
+                            />
+                        ))
                     ))}
                 </div>
-            </div>
+            )}
 
             {/* ── SECTION: DESCRIPTION (Deep Dive) ── */}
             <div ref={sectionRefs.Description} style={{ maxWidth: '1100px', margin: '0 auto', padding: '100px 20px', borderBottom: '1px solid #f2f2f2' }}>
@@ -416,14 +595,51 @@ const ProductDetailPage = ({ usesSlug }) => {
             </div>
 
             {/* ── SECTION: GALLERIES ── */}
-            <div ref={sectionRefs.Galleries} style={{ maxWidth: '1440px', margin: '0 auto', padding: '100px 80px', borderBottom: '1px solid #f2f2f2' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '30px' }}>
-                    {allImages.map((img, i) => (
-                        <div key={i} style={{ background: '#f5f5f7', borderRadius: '24px', overflow: 'hidden', aspectRatio: '4/3', border: '1px solid #f2f2f2', position: 'relative' }}>
-                            <img src={img} alt={`Gallery ${i}`} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '20px' }} />
-                            <a href={img} download style={{ position: 'absolute', bottom: '15px', right: '15px', background: '#fff', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1d1d1f', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}><Download size={16} /></a>
-                        </div>
+            <div ref={sectionRefs.Galleries} style={{ width: '100%', padding: '100px 0', borderBottom: '1px solid #f2f2f2', background: '#fff' }}>
+                <h2 style={{ fontSize: '2.5rem', fontWeight: 800, textAlign: 'center', marginBottom: '50px', color: '#1d1d1f' }}>Product Galleries</h2>
+                
+                <div style={{ position: 'relative', width: '100%', maxWidth: '1920px', margin: '0 auto', overflow: 'hidden' }}>
+                    <motion.div 
+                        animate={{ x: `-${Math.min(galleryIndex, Math.max(0, allImages.length - 5)) * (100 / 5)}%` }}
+                        transition={{ type: 'tween', ease: 'easeOut', duration: 0.4 }}
+                        style={{ display: 'flex', gap: '8px', padding: '0 8px' }}
+                    >
+                        {allImages.map((img, i) => (
+                            <div key={i} onClick={() => { setActiveImage(i); window.scrollTo({ top: 0, behavior: 'smooth' }); }} style={{ flex: '0 0 calc(20% - 6.4px)', aspectRatio: '1/1', background: '#0a0a0a', overflow: 'hidden', cursor: 'pointer', position: 'relative' }}>
+                                <img src={img} alt={`Gallery ${i}`} style={{ width: '100%', height: '100%', objectFit: 'contain', opacity: 0.95, transition: 'all 0.3s' }} onMouseEnter={(e) => { e.currentTarget.style.opacity = 1; e.currentTarget.style.transform = 'scale(1.05)'; }} onMouseLeave={(e) => { e.currentTarget.style.opacity = 0.95; e.currentTarget.style.transform = 'scale(1)'; }} />
+                            </div>
+                        ))}
+                    </motion.div>
+
+                    {galleryIndex > 0 && (
+                        <button onClick={() => setGalleryIndex(p => Math.max(0, p - 1))} style={{ position: 'absolute', left: '20px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.4)', border: 'none', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', cursor: 'pointer', zIndex: 5 }}>
+                            <ChevronLeft size={24} />
+                        </button>
+                    )}
+                    {galleryIndex < Math.max(0, allImages.length - 5) && (
+                        <button onClick={() => setGalleryIndex(p => p + 1)} style={{ position: 'absolute', right: '20px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.4)', border: 'none', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', cursor: 'pointer', zIndex: 5 }}>
+                            <ChevronRight size={24} />
+                        </button>
+                    )}
+                </div>
+
+                {/* Dots */}
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginTop: '30px' }}>
+                    {allImages.map((_, i) => (
+                        <div key={i} onClick={() => setGalleryIndex(i)} style={{ width: i === galleryIndex ? '8px' : '6px', height: i === galleryIndex ? '8px' : '6px', borderRadius: '50%', background: i === galleryIndex ? '#1d1d1f' : '#d2d2d7', cursor: 'pointer', transition: 'all 0.2s' }} />
                     ))}
+                </div>
+
+                {/* Bottom Buttons */}
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '50px' }}>
+                    <button onClick={() => setIsLightboxOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 34px', background: '#ff9800', color: '#fff', border: 'none', borderRadius: '30px', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', transition: 'opacity 0.2s', boxShadow: '0 4px 15px rgba(255, 152, 0, 0.3)' }}>
+                        <LayoutGrid size={18} />
+                        View All Images
+                    </button>
+                    <button onClick={handleDownloadAll} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 34px', background: '#fff', color: '#ff9800', border: '2px solid #ff9800', borderRadius: '30px', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', transition: 'background 0.2s' }} onMouseEnter={(e) => { e.currentTarget.style.background = '#fff8e1'; }} onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; }}>
+                        <Download size={18} />
+                        Download
+                    </button>
                 </div>
             </div>
 
@@ -458,9 +674,5 @@ const ProductDetailPage = ({ usesSlug }) => {
         </div>
     );
 };
-
-const ChevronDown = ({ size }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-);
 
 export default ProductDetailPage;

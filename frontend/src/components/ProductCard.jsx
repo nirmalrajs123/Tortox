@@ -37,8 +37,8 @@ const ProductCard = ({ product }) => {
             transition={{ duration: 0.3, ease: 'easeOut' }}
             style={{
                 background: '#ffffff',
-                borderRadius: '8px',
-                padding: '28px',
+                borderRadius: '16px',
+                padding: '24px',
                 display: 'flex',
                 flexDirection: 'column',
                 cursor: 'pointer',
@@ -53,17 +53,16 @@ const ProductCard = ({ product }) => {
             {product.is_new !== false && (
                 <div style={{
                     position: 'absolute',
-                    top: '20px',
-                    left: '20px',
+                    top: '0px',
+                    left: '0px',
                     backgroundColor: '#000',
                     color: '#fff',
-                    padding: '4px 14px',
-                    fontSize: '0.8rem',
-                    fontWeight: 900,
-                    borderRadius: '4px',
+                    padding: '10px 24px',
+                    fontSize: '1.2rem',
+                    fontWeight: '900',
+                    borderTopLeftRadius: '16px',
+                    borderBottomRightRadius: '12px',
                     zIndex: 2,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px'
                 }}>
                     New
                 </div>
@@ -76,16 +75,16 @@ const ProductCard = ({ product }) => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginBottom: '35px',
+                marginBottom: '20px',
                 position: 'relative',
-                padding: '10px'
+                padding: '0px'
             }}>
                 <img
                     src={finalSrc}
                     alt={product.product_name || product.modal}
                     style={{
-                        maxWidth: '95%',
-                        maxHeight: '95%',
+                        maxWidth: '100%',
+                        maxHeight: '100%',
                         objectFit: 'contain',
                         filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.05))',
                         transition: 'transform 0.5s ease',
@@ -97,21 +96,21 @@ const ProductCard = ({ product }) => {
             {/* 📝 Technical Info */}
             <div style={{ marginTop: 'auto' }}>
                 <h3 style={{ 
-                    fontSize: '1.25rem', 
-                    fontWeight: 900, 
-                    color: '#1d1d1f', 
-                    marginBottom: '6px',
+                    fontSize: '1.4rem', 
+                    fontWeight: '800', 
+                    color: '#000000', 
+                    marginBottom: '8px',
                     lineHeight: '1.2',
-                    textTransform: 'uppercase',
-                    wordBreak: 'break-word'
+                    wordBreak: 'break-word',
+                    letterSpacing: '-0.2px'
                 }}>
                     {product.product_name || product.modal}
                 </h3>
                 
                 <p style={{ 
-                    fontSize: '0.85rem', 
-                    color: '#86868b', 
-                    fontWeight: 500,
+                    fontSize: '1rem', 
+                    color: '#333333', 
+                    fontWeight: '500',
                     marginBottom: '20px'
                 }}>
                     {mb || 'ATX'} / {dims || 'Technical Dimension'}
@@ -134,18 +133,28 @@ const ProductCard = ({ product }) => {
                                     onMouseEnter={() => v.image && setSelectedImage(v.image)}
                                     onMouseLeave={() => setSelectedImage(null)}
                                     style={{
-                                        width: '18px',
-                                        height: '18px',
+                                        width: '28px',
+                                        height: '28px',
+                                        borderRadius: '50%',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        border: isThisSelected ? '2px solid #ff7a00' : '2px solid transparent',
+                                        padding: '3px',
+                                        boxSizing: 'border-box'
+                                    }}
+                                >
+                                    <div style={{
+                                        width: '100%',
+                                        height: '100%',
                                         borderRadius: '50%',
                                         background: displayColor === 'black' ? '#000' : (displayColor === 'white' ? '#fff' : displayColor),
-                                        border: displayColor === 'white' ? '1px solid #dcdcdc' : (isThisSelected ? '2px solid #ff6b00' : '1px solid #eeeeee'),
-                                        cursor: 'pointer',
-                                        transition: 'transform 0.2s ease',
-                                        transform: isHovered && isThisSelected ? 'scale(1.2)' : 'scale(1)',
-                                        outline: isThisSelected ? '2px solid #ff6b00' : 'none',
-                                        outlineOffset: '2px'
-                                    }}
-                                />
+                                        border: displayColor === 'white' ? '1px solid #dcdcdc' : (displayColor === 'black' ? 'none' : '1px solid rgba(0,0,0,0.1)'),
+                                        boxShadow: isThisSelected ? 'none' : '0 1px 3px rgba(0,0,0,0.1)'
+                                    }} />
+                                </div>
                             );
                         })
                     ) : (

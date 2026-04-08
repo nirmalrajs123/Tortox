@@ -1,6 +1,8 @@
 const { Pool } = require('pg');
 const dotenv = require('dotenv');
 
+
+
 dotenv.config();
 
 const pool = new Pool({
@@ -68,6 +70,7 @@ const initializeDatabase = async () => {
         ALTER TABLE product_details ADD COLUMN IF NOT EXISTS price DECIMAL(10, 2);
         ALTER TABLE product_details ADD COLUMN IF NOT EXISTS image TEXT;
         ALTER TABLE product_details ADD COLUMN IF NOT EXISTS specs JSONB;
+        ALTER TABLE product_details ADD COLUMN IF NOT EXISTS aplus_images JSONB;
     `;
 
     // 2. Create Users Table for Dashboard CMS
@@ -97,7 +100,8 @@ const initializeDatabase = async () => {
             specification_name TEXT NOT NULL,
             specification_value TEXT NOT NULL,
             order_id INTEGER,
-            spec_label_id INTEGER
+            spec_label_id INTEGER,
+            foreign key (spec_label_id) references spec_label(id)
         );
     `;
 
@@ -229,15 +233,41 @@ const initializeDatabase = async () => {
         await pool.query(`ALTER TABLE spec_label ADD COLUMN IF NOT EXISTS spec_options TEXT;`);
         await pool.query(createUsersQuery);
         await pool.query(createCategorysQuery);
+        await pool.query(`ALTER TABLE categorys ADD COLUMN IF NOT EXISTS category_image TEXT;`);
+
+        // 15. Create aplus_contents Table
+        const createAPlusContentsQuery = `
+            CREATE TABLE IF NOT EXISTS aplus_contents (
+                id SERIAL PRIMARY KEY,
+                product_id INTEGER NOT NULL,
+                image_paths JSONB DEFAULT '[]',
+                order_index INTEGER DEFAULT 0,
+                FOREIGN KEY (product_id) REFERENCES product_details(id)
+            );
+        `;
+        await pool.query(createAPlusContentsQuery);
+
+        await pool.query(createVariantImagesQuery);
+        await pool.query(createSpecLabelQuery); // Must exist before specifications for FK
         await pool.query(createSpecificationsQuery);
         await pool.query(createVariantsQuery);
-        await pool.query(createVariantImagesQuery);
-        await pool.query(createSpecLabelQuery);
         await pool.query(createFeaturesQuery);
         await pool.query(createProductImagesQuery);
         await pool.query(createFilterLabelsQuery);
         await pool.query(createFilterValuesQuery);
         await pool.query(createProductFiltersQuery);
+
+        // Explicitly patch FK to existing table instances since CREATE IF NOT EXISTS won't update schema
+        try {
+            await pool.query(`
+                ALTER TABLE specifications 
+                ADD CONSTRAINT fk_spec_label 
+                FOREIGN KEY (spec_label_id) 
+                REFERENCES spec_label(id);
+            `);
+        } catch (e) {
+            // Constraint probably exists, silently ignore
+        }
 
         // 🛠️ Alter tables for variant support trigger framing flawlessly flawless flawless flaws flawlessly
         await pool.query(`ALTER TABLE specifications ADD COLUMN IF NOT EXISTS variant_id INTEGER DEFAULT 0;`);

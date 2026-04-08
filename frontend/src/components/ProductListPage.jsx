@@ -63,7 +63,9 @@ const ProductListPage = () => {
 
     const resetFilters = () => setSelectedFilters({});
 
-    const currentCategoryName = categories.find(c => String(c.id) === String(categoryFromUrl))?.category_name || 'All Products';
+    const currentCategoryObj = categories.find(c => String(c.id) === String(categoryFromUrl));
+    const currentCategoryName = currentCategoryObj?.category_name || 'All Products';
+    const currentCategoryBanner = currentCategoryObj?.category_image;
 
     const filteredProducts = products.filter(p => {
         // Multi-dimensional filter logic
@@ -82,7 +84,7 @@ const ProductListPage = () => {
             <Navbar theme="light" fixed={false} />
 
             {/* ── BREADCRUMB / UTILITY ── */}
-            <div style={{ padding: '30px 60px 10px 60px', background: '#fff' }}>
+            <div style={{ padding: '30px 20px 10px 20px', background: '#fff' }}>
                 <div style={{ maxWidth: '1440px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '8px', color: '#86868b', fontSize: '0.8rem' }}>
                     <span onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>Home</span> 
                     <ChevronRight size={12} />
@@ -96,28 +98,30 @@ const ProductListPage = () => {
                 </div>
             </div>
 
-            <main style={{ maxWidth: '1440px', margin: '0 auto', width: '100%', padding: '20px 60px 100px 60px', display: 'flex', gap: '80px', boxSizing: 'border-box' }}>
+            <main style={{ maxWidth: '1600px', margin: '0 auto', width: '100%', padding: '20px 20px 100px 20px', display: 'flex', gap: '60px', boxSizing: 'border-box' }}>
 
                 {/* 📂 SIDEBAR FILTERS (darkFlash style) */}
-                <aside style={{ width: '220px', flexShrink: 0, position: 'sticky', top: '20px', height: 'fit-content' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '30px', paddingBottom: '15px', borderBottom: '2px solid #1d1d1f' }}>
-                        <h2 style={{ fontSize: '1.4rem', fontWeight: 900, textTransform: 'uppercase' }}>Filter</h2>
-                        <Trash2 size={18} color="#999" style={{ cursor: 'pointer' }} onClick={resetFilters} />
+                <aside style={{ width: '280px', flexShrink: 0, position: 'sticky', top: '100px', height: 'calc(100vh - 140px)', paddingRight: '20px', overflowY: 'auto' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '40px', paddingBottom: '15px', borderBottom: '1px solid #1d1d1f' }}>
+                        <h2 style={{ fontSize: '1.2rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>Filter</h2>
+                        <Trash2 size={16} color="#999" style={{ cursor: 'pointer' }} onClick={resetFilters} />
                     </div>
 
                     {filterConfig.map(group => (
-                        <div key={group.id} style={{ marginBottom: '35px' }}>
-                            <h3 style={{ fontSize: '1rem', fontWeight: 900, marginBottom: '20px', color: '#1d1d1f', lineHeight: '1.2' }}>{group.filter_label}</h3>
+                        <div key={group.id} style={{ marginBottom: '40px' }}>
+                            <h3 style={{ fontSize: '0.9rem', fontWeight: 800, marginBottom: '20px', color: '#1d1d1f', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                                {group.filter_label}
+                            </h3>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                                 {group.values.map(val => (
-                                    <label key={val.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', color: '#424245', cursor: 'pointer', fontWeight: 500 }}>
+                                    <label key={val.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.95rem', color: '#333', cursor: 'pointer', fontWeight: 500 }}>
                                         <input
                                             type="checkbox"
                                             checked={(selectedFilters[group.id] || []).includes(val.filter_value)}
                                             onChange={() => toggleFilter(group.id, val.filter_value)}
                                             style={checkboxStyle}
                                         />
-                                        {val.filter_value}
+                                        <span>{val.filter_value}</span>
                                     </label>
                                 ))}
                             </div>
@@ -125,7 +129,7 @@ const ProductListPage = () => {
                     ))}
 
                     {!loading && filterConfig.length === 0 && (
-                        <div style={{ fontSize: '0.85rem', color: '#86868b', fontStyle: 'italic' }}>
+                        <div style={{ fontSize: '0.9rem', color: '#86868b', fontStyle: 'italic', padding: '20px', background: '#f9f9f9', borderRadius: '8px' }}>
                             Refine selection by choosing a category.
                         </div>
                     )}
@@ -139,8 +143,29 @@ const ProductListPage = () => {
                         </div>
                     ) : (
                         <>
+                            {currentCategoryBanner && (
+                                <div style={{ 
+                                    marginBottom: '30px', 
+                                    width: '100%', 
+                                    borderRadius: '16px', 
+                                    overflow: 'hidden', 
+                                    height: '240px', 
+                                    background: '#fcfcfc', 
+                                    border: '1px solid #eaeaea',
+                                    position: 'relative'
+                                }}>
+                                    <img 
+                                        src={currentCategoryBanner} 
+                                        alt={currentCategoryName} 
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} 
+                                    />
+                                    {/* Subtle Gradient Overlay for premium feel */}
+                                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.1), transparent)', pointerEvents: 'none' }} />
+                                </div>
+                            )}
+
                             <div style={{ marginBottom: '30px', borderBottom: '1px solid #f2f2f2', paddingBottom: '20px' }}>
-                                <h1 style={{ fontSize: '2.5rem', marginBottom: '8px' }}>{currentCategoryName}</h1>
+                                <h1 style={{ fontSize: '2.5rem', marginBottom: '8px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{currentCategoryName}</h1>
                                 <p style={{ color: '#86868b', fontSize: '0.9rem' }}>
                                     Showing <span style={{ color: '#1d1d1f', fontWeight: 700 }}>{filteredProducts.length}</span> individual tactical units
                                 </p>
@@ -152,9 +177,12 @@ const ProductListPage = () => {
                                 gap: '30px',
                                 gapY: '50px' 
                             }}>
-                                {filteredProducts.map((p) => (
-                                    <ProductCard key={p.id} product={p} hideBadge={false} />
-                                ))}
+                                {filteredProducts.map((p) => {
+                                    const catImage = categories.find(c => String(c.category_name) === String(p.category_name) || String(c.id) === String(p.category_id))?.category_image;
+                                    return (
+                                        <ProductCard key={p.id} product={p} hideBadge={false} categoryImage={catImage} />
+                                    );
+                                })}
                             </div>
 
                             {filteredProducts.length === 0 && (

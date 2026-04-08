@@ -18,7 +18,8 @@ const CategoryGrid = () => {
     const [categories, setCategories] = useState([]);
 
     useEffect(() => {
-        axios.get('http://localhost:5000/api/categories')
+        const hostname = window.location.hostname;
+        axios.get(`http://${hostname}:5000/api/categories`)
             .then(res => {
                 if (res.data.success) setCategories(res.data.data);
             })
@@ -38,7 +39,7 @@ const CategoryGrid = () => {
                 gap: '20px',
             }}>
                 {categories.map((cat, idx) => {
-                    const img = categoryImages[cat.category_name.toUpperCase()] || fallbackImage;
+                    const img = cat.category_image || categoryImages[cat.category_name.toUpperCase()] || fallbackImage;
                     return (
                         <motion.div
                             key={cat.id}
