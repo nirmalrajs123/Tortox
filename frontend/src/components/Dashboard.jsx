@@ -373,19 +373,21 @@ const Dashboard = () => {
                                                                         </motion.button>
 
                                                                         <motion.button
-                                                                            whileHover={{ scale: 1.05, background: 'rgba(56, 189, 248, 0.1)', color: '#0ea5e9' }}
+                                                                            whileHover={{ scale: 1.05, background: 'var(--accent-primary)', color: '#fff' }}
                                                                             whileTap={{ scale: 0.95 }}
                                                                             onClick={() => { setAplusProduct(prod); setShowAPlusModal(true); }}
                                                                             title="Manage A+ Marketing Content"
                                                                             style={{
-                                                                                padding: '8px', borderRadius: '10px',
-                                                                                background: 'rgba(56, 189, 248, 0.1)',
-                                                                                color: '#0ea5e9',
-                                                                                border: '1px solid #bae6fd',
-                                                                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s'
+                                                                                padding: '8px 16px', borderRadius: '10px',
+                                                                                background: 'rgba(225, 25, 25, 0.08)',
+                                                                                color: 'var(--accent-primary)',
+                                                                                border: '1px solid rgba(225, 25, 25, 0.2)',
+                                                                                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', 
+                                                                                fontSize: '0.72rem', fontWeight: 800, transition: 'all 0.2s',
+                                                                                letterSpacing: '0.5px'
                                                                             }}
                                                                         >
-                                                                            <Sparkles size={16} />
+                                                                            <Sparkles size={14} /> A+ CONTENT
                                                                         </motion.button>
 
                                                                         <motion.button

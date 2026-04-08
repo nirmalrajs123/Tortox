@@ -635,7 +635,7 @@ const ProductDetailPage = ({ usesSlug }) => {
             {/* ── SECTION: VIEWS (Perspectives) ── */}
             <div ref={sectionRefs.Views} style={{ maxWidth: '1440px', margin: '0 auto', padding: '100px 80px', borderBottom: '1px solid #f2f2f2' }}>
                 <div style={{ textAlign: 'center', marginBottom: '80px' }}>
-                    <h2 className="apple-gradient" style={{ fontSize: '3.5rem', fontWeight: 900, marginBottom: '20px' }}>Studio Perspectives</h2>
+                    <h2 className="tortox-heading" style={{ fontSize: '3.5rem', fontWeight: 900, marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '-1px' }}>Studio Perspectives</h2>
                     <p style={{ fontSize: '1.2rem', color: '#86868b' }}>Every detail captured from our engineering desk to your screen.</p>
                 </div>
 
@@ -667,7 +667,7 @@ const ProductDetailPage = ({ usesSlug }) => {
             {/* ── SECTION: DESCRIPTION (Deep Dive) ── */}
             <div ref={sectionRefs.Description} style={{ maxWidth: '1100px', margin: '0 auto', padding: '100px 20px', borderBottom: '1px solid #f2f2f2' }}>
                 <div style={{ textAlign: 'center', marginBottom: '60px' }}>
-                    <h2 style={{ fontSize: '3rem', fontWeight: 900, color: '#1d1d1f', marginBottom: '20px' }}>Deep Dive</h2>
+                    <h2 className="tortox-heading" style={{ fontSize: '3.5rem', fontWeight: 900, color: '#1d1d1f', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '-1px' }}>Deep Dive</h2>
                     <p style={{ fontSize: '1.1rem', color: '#86868b', maxWidth: '600px', margin: '0 auto' }}>Design philosophy behind this unit.</p>
                 </div>
                 <div style={{ background: '#ffffff', borderRadius: '32px', padding: '60px', boxShadow: '0 20px 80px rgba(0,0,0,0.03)', border: '1px solid #f2f2f2', lineHeight: '1.8', fontSize: '1.15rem', color: '#4b5563', whiteSpace: 'pre-wrap' }}>
@@ -678,7 +678,16 @@ const ProductDetailPage = ({ usesSlug }) => {
             {/* ── SECTION: SPEC (Specifications) ── */}
             <div ref={sectionRefs.Spec} style={{ maxWidth: '1000px', margin: '0 auto', padding: '100px 20px', borderBottom: '1px solid #f2f2f2' }}>
                 <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-                    <h2 className="apple-gradient" style={{ fontSize: '3.5rem', fontWeight: 900, marginBottom: '20px' }}>Technical Specifications</h2>
+                    <style>{`
+                        .tortox-heading {
+                            display: inline-block;
+                            background: linear-gradient(to bottom, #e11919 50%, #1d1d1f 50%);
+                            -webkit-background-clip: text;
+                            -webkit-text-fill-color: transparent;
+                            padding: 10px 0;
+                        }
+                    `}</style>
+                    <h2 className="tortox-heading" style={{ fontSize: '3.5rem', fontWeight: 900, marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '-1px' }}>Technical Specifications</h2>
                 </div>
                 <div style={{ borderTop: '1px solid #f2f2f2' }}>
                     {specs.length > 0 ? specs.map((s, i) => (
@@ -692,7 +701,7 @@ const ProductDetailPage = ({ usesSlug }) => {
 
             {/* ── SECTION: GALLERIES ── */}
             <div ref={sectionRefs.Galleries} style={{ width: '100%', padding: '100px 0', borderBottom: '1px solid #f2f2f2', background: '#fff' }}>
-                <h2 style={{ fontSize: '2.5rem', fontWeight: 800, textAlign: 'center', marginBottom: '50px', color: '#1d1d1f' }}>Product Galleries</h2>
+                <h2 className="tortox-heading" style={{ display: 'block', fontSize: '3.5rem', fontWeight: 900, textAlign: 'center', marginBottom: '50px', color: '#1d1d1f', textTransform: 'uppercase', letterSpacing: '-1px' }}>Product Galleries</h2>
 
                 <div style={{ position: 'relative', width: '100%', maxWidth: '1920px', margin: '0 auto', overflow: 'hidden' }}>
                     <motion.div
@@ -701,21 +710,90 @@ const ProductDetailPage = ({ usesSlug }) => {
                         style={{ display: 'flex', gap: '8px', padding: '0 8px' }}
                     >
                         {allImages.map((img, i) => (
-                            <div key={i} onClick={() => setSelectedPreviewImage(img)} style={{ flex: '0 0 calc(20% - 6.4px)', aspectRatio: '1/1', background: '#0a0a0a', overflow: 'hidden', cursor: 'pointer', position: 'relative' }}>
+                            <div 
+                                key={i} 
+                                onClick={() => setSelectedPreviewImage(img)} 
+                                style={{ 
+                                    flex: '0 0 calc(20% - 6.4px)', aspectRatio: '1/1', 
+                                    background: '#0a0a0a', overflow: 'hidden', 
+                                    cursor: 'pointer', position: 'relative',
+                                    group: 'true' // Logical flag for hover interactions
+                                }}
+                                onMouseEnter={(e) => {
+                                    const btn = e.currentTarget.querySelector('.single-dl-btn');
+                                    if(btn) btn.style.opacity = '1';
+                                }}
+                                onMouseLeave={(e) => {
+                                    const btn = e.currentTarget.querySelector('.single-dl-btn');
+                                    if(btn) btn.style.opacity = '0';
+                                }}
+                            >
                                 <img src={img} alt={`Gallery ${i}`} style={{ width: '100%', height: '100%', objectFit: 'contain', opacity: 0.95, transition: 'all 0.3s' }} onMouseEnter={(e) => { e.currentTarget.style.opacity = 1; e.currentTarget.style.transform = 'scale(1.05)'; }} onMouseLeave={(e) => { e.currentTarget.style.opacity = 0.95; e.currentTarget.style.transform = 'scale(1)'; }} />
+                                
+                                <motion.button
+                                    className="single-dl-btn"
+                                    whileHover={{ scale: 1.1, background: '#e11919' }}
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const a = document.createElement('a');
+                                        a.href = img;
+                                        a.download = `tortox_${product.modal}_${i+1}.jpg`;
+                                        document.body.appendChild(a);
+                                        a.click();
+                                        document.body.removeChild(a);
+                                    }}
+                                    style={{
+                                        position: 'absolute', bottom: '15px', right: '15px',
+                                        width: '38px', height: '38px', borderRadius: '50%',
+                                        background: 'rgba(29, 29, 31, 0.8)', color: '#fff',
+                                        border: 'none', display: 'flex', alignItems: 'center',
+                                        justifyContent: 'center', cursor: 'pointer',
+                                        opacity: 0, transition: 'all 0.3s',
+                                        backdropFilter: 'blur(10px)', zIndex: 6
+                                    }}
+                                >
+                                    <Download size={18} />
+                                </motion.button>
                             </div>
                         ))}
                     </motion.div>
 
                     {galleryIndex > 0 && (
-                        <button onClick={() => setGalleryIndex(p => Math.max(0, p - 1))} style={{ position: 'absolute', left: '20px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.4)', border: 'none', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', cursor: 'pointer', zIndex: 5 }}>
-                            <ChevronLeft size={24} />
-                        </button>
+                        <motion.button 
+                            whileHover={{ background: 'rgba(225, 25, 25, 0.4)' }}
+                            onClick={() => setGalleryIndex(p => Math.max(0, p - 1))} 
+                            style={{ 
+                                position: 'absolute', left: 0, top: 0, bottom: 0, 
+                                width: '60px', background: 'rgba(0,0,0,0.2)', 
+                                border: 'none', color: '#fff', cursor: 'pointer', 
+                                zIndex: 5, display: 'flex', alignItems: 'center', 
+                                justifyContent: 'center', backdropFilter: 'blur(4px)',
+                                transition: 'background 0.3s'
+                            }}
+                        >
+                            <motion.div whileHover={{ scale: 1.2 }}>
+                                <ChevronLeft size={44} strokeWidth={2.5} />
+                            </motion.div>
+                        </motion.button>
                     )}
                     {galleryIndex < Math.max(0, allImages.length - 5) && (
-                        <button onClick={() => setGalleryIndex(p => p + 1)} style={{ position: 'absolute', right: '20px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.4)', border: 'none', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', cursor: 'pointer', zIndex: 5 }}>
-                            <ChevronRight size={24} />
-                        </button>
+                        <motion.button 
+                            whileHover={{ background: 'rgba(225, 25, 25, 0.4)' }}
+                            onClick={() => setGalleryIndex(p => p + 1)} 
+                            style={{ 
+                                position: 'absolute', right: 0, top: 0, bottom: 0, 
+                                width: '60px', background: 'rgba(0,0,0,0.2)', 
+                                border: 'none', color: '#fff', cursor: 'pointer', 
+                                zIndex: 5, display: 'flex', alignItems: 'center', 
+                                justifyContent: 'center', backdropFilter: 'blur(4px)',
+                                transition: 'background 0.3s'
+                            }}
+                        >
+                            <motion.div whileHover={{ scale: 1.2 }}>
+                                <ChevronRight size={44} strokeWidth={2.5} />
+                            </motion.div>
+                        </motion.button>
                     )}
                 </div>
 
@@ -727,29 +805,76 @@ const ProductDetailPage = ({ usesSlug }) => {
                 </div>
 
                 {/* Bottom Buttons */}
-                <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '50px' }}>
-                    <button onClick={() => setIsLightboxOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 34px', background: '#ff9800', color: '#fff', border: 'none', borderRadius: '30px', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', transition: 'opacity 0.2s', boxShadow: '0 4px 15px rgba(255, 152, 0, 0.3)' }}>
-                        <LayoutGrid size={18} />
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '60px' }}>
+                    <motion.button 
+                        whileHover={{ scale: 1.05, y: -2, background: '#e11919' }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setIsLightboxOpen(true)} 
+                        style={{ 
+                            display: 'flex', alignItems: 'center', gap: '12px', 
+                            padding: '16px 40px', background: '#1d1d1f', color: '#fff', 
+                            border: 'none', borderRadius: '40px', fontWeight: 800, 
+                            fontSize: '0.9rem', cursor: 'pointer', transition: 'all 0.3s',
+                            boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
+                            letterSpacing: '0.5px'
+                        }}
+                    >
+                        <LayoutGrid size={20} />
                         View All Images
-                    </button>
-                    <button onClick={handleDownloadAll} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 34px', background: '#fff', color: '#ff9800', border: '2px solid #ff9800', borderRadius: '30px', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', transition: 'background 0.2s' }} onMouseEnter={(e) => { e.currentTarget.style.background = '#fff8e1'; }} onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; }}>
-                        <Download size={18} />
-                        Download
-                    </button>
+                    </motion.button>
+                    <motion.button 
+                        whileHover={{ scale: 1.05, background: 'rgba(225, 25, 25, 0.05)', borderColor: '#e11919', color: '#e11919' }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={handleDownloadAll} 
+                        style={{ 
+                            display: 'flex', alignItems: 'center', gap: '12px', 
+                            padding: '16px 40px', background: '#fff', color: '#1d1d1f', 
+                            border: '2px solid #1d1d1f', borderRadius: '40px', 
+                            fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer', 
+                            transition: 'all 0.2s', letterSpacing: '0.5px'
+                        }}
+                    >
+                        <Download size={20} />
+                        Download Asset Pack
+                    </motion.button>
                 </div>
             </div>
 
             {/* ── SECTION: DOWNLOADABLES ── */}
             <div ref={sectionRefs.Downloadables} style={{ maxWidth: '1000px', margin: '0 auto', padding: '100px 20px' }}>
-                <h2 style={{ fontSize: '2rem', fontWeight: 900, marginBottom: '40px', textAlign: 'center' }}>Downloads & Support</h2>
+                <div style={{ textAlign: 'center', marginBottom: '60px' }}>
+                    <h2 className="tortox-heading" style={{ fontSize: '3.5rem', fontWeight: 900, marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '-1px' }}>Downloads & Support</h2>
+                </div>
                 <div style={{ marginBottom: '60px' }}>
                     <h3 style={{ fontSize: '0.9rem', color: '#86868b', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '25px', fontWeight: 800 }}>Documentation</h3>
                     <div style={{ display: 'grid', gap: '15px' }}>
                         {(product.technical_manuals || []).map((m, idx) => (
-                            <a key={idx} href={m.download_path || normalizePath(m.preview)} download target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '24px 30px', background: '#fafafa', borderRadius: '16px', textDecoration: 'none', color: '#1d1d1f' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}><div style={{ padding: '10px', background: '#f5f5f7', borderRadius: '10px' }}><FileText size={20} color="#e11919" /></div><span style={{ fontWeight: 600 }}>{m.download_label || 'Product Manual'}</span></div>
-                                <Download size={18} color="#86868b" />
-                            </a>
+                            <motion.a 
+                                key={idx} 
+                                whileHover={{ x: 5, background: '#f5f5f7', borderColor: '#d2d2d7' }}
+                                href={m.download_path || normalizePath(m.preview)} 
+                                download 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                style={{ 
+                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+                                    padding: '24px 30px', background: '#fff', 
+                                    borderRadius: '20px', border: '1px solid #f2f2f2',
+                                    textDecoration: 'none', color: '#1d1d1f',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                    <div style={{ padding: '12px', background: 'rgba(225,25,25,0.05)', borderRadius: '12px' }}>
+                                        <FileText size={22} color="#e11919" />
+                                    </div>
+                                    <div>
+                                        <span style={{ display: 'block', fontWeight: 800, fontSize: '1rem' }}>{m.download_label || 'Product Manual'}</span>
+                                        <span style={{ fontSize: '0.75rem', color: '#86868b', fontWeight: 600 }}>Technical Documentation (PDF)</span>
+                                    </div>
+                                </div>
+                                <Download size={20} color="#1d1d1f" />
+                            </motion.a>
                         ))}
                     </div>
                 </div>
@@ -757,10 +882,33 @@ const ProductDetailPage = ({ usesSlug }) => {
                     <h3 style={{ fontSize: '0.9rem', color: '#86868b', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '25px', fontWeight: 800 }}>Software & Drivers</h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
                         {(product.downloads || []).map((dl, idx) => (
-                            <a key={idx} href={dl.download_path || normalizePath(dl.preview)} download target="_blank" rel="noreferrer" style={{ display: 'flex', flexDirection: 'column', gap: '15px', padding: '25px', background: '#fafafa', borderRadius: '16px', textDecoration: 'none', color: '#1d1d1f' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}><div style={{ padding: '10px', background: '#fff', borderRadius: '10px' }}><Download size={20} color="#e11919" /></div></div>
-                                <span style={{ fontWeight: 700 }}>{dl.download_label}</span>
-                            </a>
+                            <motion.a 
+                                key={idx} 
+                                whileHover={{ y: -5, background: '#f5f5f7', borderColor: '#d2d2d7' }}
+                                href={dl.download_path || normalizePath(dl.preview)} 
+                                download 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                style={{ 
+                                    display: 'flex', flexDirection: 'column', gap: '20px', 
+                                    padding: '30px', background: '#fff', 
+                                    borderRadius: '24px', border: '1px solid #f2f2f2',
+                                    textDecoration: 'none', color: '#1d1d1f',
+                                    transition: 'all 0.2s',
+                                    boxShadow: '0 4px 20px rgba(0,0,0,0.02)'
+                                }}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                                    <div style={{ padding: '12px', background: '#1d1d1f', borderRadius: '12px' }}>
+                                        <Download size={22} color="#fff" />
+                                    </div>
+                                    <span style={{ fontSize: '0.65rem', fontWeight: 900, background: 'rgba(0,0,0,0.05)', padding: '4px 10px', borderRadius: '20px', color: '#86868b' }}>FW/SW</span>
+                                </div>
+                                <div>
+                                    <span style={{ display: 'block', fontWeight: 800, fontSize: '1.1rem', marginBottom: '4px' }}>{dl.download_label}</span>
+                                    <span style={{ fontSize: '0.8rem', color: '#86868b', fontWeight: 600 }}>Windows Compatible</span>
+                                </div>
+                            </motion.a>
                         ))}
                     </div>
                 </div>
