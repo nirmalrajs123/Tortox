@@ -13,7 +13,10 @@ const BannerSettings = () => {
         media_type: 'image',
         mediaFile: null,
         previewUrl: null,
-        existing_media_path: ''
+        existing_media_path: '',
+        mobileMediaFile: null,
+        mobilePreviewUrl: null,
+        existing_mobile_media_path: ''
     });
 
     const loadBanners = async () => {
@@ -34,14 +37,67 @@ const BannerSettings = () => {
         loadBanners();
     }, []);
 
-    const handleFileChange = (e) => {
+    const validateMediaRatio = (file, expectedRatioX, expectedRatioY) => {
+        return new Promise((resolve) => {
+            const url = URL.createObjectURL(file);
+            const checkRatio = (width, height) => {
+                const ratio = width / height;
+                const expected = expectedRatioX / expectedRatioY;
+                // Allow a small tolerance for slight rounding differences
+                const isValid = Math.abs(ratio - expected) < 0.05;
+                if (!isValid) {
+                    alert(`Invalid Aspect Ratio.\n\nExpected: ${expectedRatioX}:${expectedRatioY}\nUploaded: ${width}x${height}`);
+                }
+                resolve(isValid);
+            };
+
+            if (file.type.startsWith('video')) {
+                const video = document.createElement('video');
+                video.onloadedmetadata = () => {
+                    checkRatio(video.videoWidth, video.videoHeight);
+                    URL.revokeObjectURL(url);
+                };
+                video.src = url;
+            } else {
+                const img = new Image();
+                img.onload = () => {
+                    checkRatio(img.width, img.height);
+                    URL.revokeObjectURL(url);
+                };
+                img.src = url;
+            }
+        });
+    };
+
+    const handleFileChange = async (e) => {
         const file = e.target.files[0];
         if (file) {
+            const isValid = await validateMediaRatio(file, 16, 9);
+            if (!isValid) {
+                e.target.value = ''; // Reset input
+                return;
+            }
             setFormData(prev => ({
                 ...prev,
                 mediaFile: file,
                 previewUrl: URL.createObjectURL(file),
                 media_type: file.type.startsWith('video') ? 'video' : 'image'
+            }));
+        }
+    };
+
+    const handleMobileFileChange = async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const isValid = await validateMediaRatio(file, 9, 16);
+            if (!isValid) {
+                e.target.value = ''; // Reset input
+                return;
+            }
+            setFormData(prev => ({
+                ...prev,
+                mobileMediaFile: file,
+                mobilePreviewUrl: URL.createObjectURL(file)
             }));
         }
     };
@@ -52,7 +108,10 @@ const BannerSettings = () => {
             media_type: 'image',
             mediaFile: null,
             previewUrl: null,
-            existing_media_path: ''
+            existing_media_path: '',
+            mobileMediaFile: null,
+            mobilePreviewUrl: null,
+            existing_mobile_media_path: ''
         });
         setIsAdding(false);
         setEditingId(null);
@@ -65,7 +124,10 @@ const BannerSettings = () => {
             media_type: banner.media_type || 'image',
             mediaFile: null,
             previewUrl: banner.media_path,
-            existing_media_path: banner.media_path
+            existing_media_path: banner.media_path,
+            mobileMediaFile: null,
+            mobilePreviewUrl: banner.mobile_media_path,
+            existing_mobile_media_path: banner.mobile_media_path
         });
         setIsAdding(false);
     };
@@ -80,6 +142,12 @@ const BannerSettings = () => {
             data.append('media', formData.mediaFile);
         } else if (formData.existing_media_path) {
             data.append('existing_media_path', formData.existing_media_path);
+        }
+
+        if (formData.mobileMediaFile) {
+            data.append('mobile_media', formData.mobileMediaFile);
+        } else if (formData.existing_mobile_media_path) {
+            data.append('existing_mobile_media_path', formData.existing_mobile_media_path);
         }
 
         try {
@@ -172,9 +240,10 @@ const BannerSettings = () => {
                                 </div>
                             </div>
 
-                            <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', alignItems: 'flex-start' }}>
+                                {/* Desktop Asset */}
                                 <div style={{ flex: 1 }}>
-                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>Background Asset</label>
+                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>Desktop Asset</label>
                                     <div style={{ position: 'relative', width: '100%' }}>
                                         <input
                                             type="file"
@@ -190,23 +259,55 @@ const BannerSettings = () => {
                                             </div>
                                         </div>
                                     </div>
+                                    {formData.previewUrl && (
+                                        <div style={{ width: '100%', marginTop: '1rem' }}>
+                                            <div style={{ width: '100%', height: '157px', borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--border-ghost)', background: '#000', position: 'relative' }}>
+                                                {formData.media_type === 'video' ? (
+                                                    <video src={formData.previewUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} autoPlay muted loop />
+                                                ) : (
+                                                    <img src={formData.previewUrl} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                )}
+                                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(rgba(0,0,0,0.1), rgba(0,0,0,0.4))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <span style={{ color: '#fff', fontSize: '0.8rem', fontWeight: 800, textShadow: '0 2px 4px rgba(0,0,0,0.5)', padding: '0 10px', textAlign: 'center' }}>{formData.banner_text || 'Headline Preview'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                                
-                                {formData.previewUrl && (
-                                    <div style={{ width: '280px' }}>
-                                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '10px', textTransform: 'uppercase' }}>Live Preview</label>
-                                        <div style={{ width: '100%', height: '157px', borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--border-ghost)', background: '#000', position: 'relative' }}>
-                                            {formData.media_type === 'video' ? (
-                                                <video src={formData.previewUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} autoPlay muted loop />
-                                            ) : (
-                                                <img src={formData.previewUrl} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            )}
-                                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(rgba(0,0,0,0.1), rgba(0,0,0,0.4))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <span style={{ color: '#fff', fontSize: '0.8rem', fontWeight: 800, textShadow: '0 2px 4px rgba(0,0,0,0.5)', padding: '0 10px', textAlign: 'center' }}>{formData.banner_text || 'Headline Preview'}</span>
+
+                                {/* Mobile Asset */}
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>Mobile Asset (Optional)</label>
+                                    <div style={{ position: 'relative', width: '100%' }}>
+                                        <input
+                                            type="file"
+                                            accept="image/*,video/*"
+                                            onChange={handleMobileFileChange}
+                                            style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer', zIndex: 10 }}
+                                        />
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '3rem 2rem', background: 'var(--bg-surface)', border: '2px dashed var(--border-ghost)', borderRadius: '16px', transition: 'border-color 0.2s' }}>
+                                            <Upload color="var(--text-muted)" size={32} />
+                                            <div style={{ textAlign: 'center' }}>
+                                                <p style={{ fontSize: '0.9rem', color: 'var(--text-main)', fontWeight: 700 }}>Click to select media</p>
+                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Recommended: 1080x1920 (9:16)</p>
                                             </div>
                                         </div>
                                     </div>
-                                )}
+                                    {formData.mobilePreviewUrl && (
+                                        <div style={{ width: '100%', marginTop: '1rem', display: 'flex', justifyContent: 'center' }}>
+                                            <div style={{ width: '88px', height: '157px', borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--border-ghost)', background: '#000', position: 'relative' }}>
+                                                {formData.media_type === 'video' ? (
+                                                    <video src={formData.mobilePreviewUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} autoPlay muted loop />
+                                                ) : (
+                                                    <img src={formData.mobilePreviewUrl} alt="Preview Mobile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                )}
+                                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(rgba(0,0,0,0.1), rgba(0,0,0,0.4))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <span style={{ color: '#fff', fontSize: '0.5rem', fontWeight: 800, textShadow: '0 1px 2px rgba(0,0,0,0.5)', padding: '0 5px', textAlign: 'center' }}>{formData.banner_text || 'Headline'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid var(--border-ghost)', paddingTop: '2rem' }}>

@@ -22,12 +22,18 @@ const getAPlusContent = async (req, res) => {
 const addAPlusContent = async (req, res) => {
     const { product_id } = req.body;
     const mediaFiles = req.files || [];
-    const image_paths = mediaFiles.map(file => `/uploads/${file.filename}`);
+    
+    // 🛠️ Dual-path asset routing
+    const desktopFile = mediaFiles.find(f => f.fieldname === 'media');
+    const mobileFile = mediaFiles.find(f => f.fieldname === 'mobile_media');
+
+    const image_paths = desktopFile ? [`/uploads/${desktopFile.filename}`] : [];
+    const mobile_media_path = mobileFile ? `/uploads/${mobileFile.filename}` : null;
 
     try {
         const result = await pool.query(
-            'INSERT INTO aplus_contents (product_id, image_paths) VALUES ($1, $2::jsonb) RETURNING *',
-            [product_id, JSON.stringify(image_paths)]
+            'INSERT INTO aplus_contents (product_id, image_paths, mobile_media_path) VALUES ($1, $2::jsonb, $3) RETURNING *',
+            [product_id, JSON.stringify(image_paths), mobile_media_path]
         );
         res.status(201).json({ success: true, data: result.rows[0] });
     } catch (err) {
@@ -40,12 +46,12 @@ const addAPlusContent = async (req, res) => {
 // @route   PUT /api/aplus/:id
 const updateAPlusContent = async (req, res) => {
     const { id } = req.params;
-    const { image_paths } = req.body;
+    const { image_paths, mobile_media_path } = req.body;
 
     try {
         const result = await pool.query(
-            'UPDATE aplus_contents SET image_paths = $1::jsonb WHERE id = $2 RETURNING *',
-            [typeof image_paths === 'string' ? image_paths : JSON.stringify(image_paths), id]
+            'UPDATE aplus_contents SET image_paths = $1::jsonb, mobile_media_path = $2 WHERE id = $3 RETURNING *',
+            [typeof image_paths === 'string' ? image_paths : JSON.stringify(image_paths || []), mobile_media_path, id]
         );
         res.status(200).json({ success: true, data: result.rows[0] });
     } catch (err) {

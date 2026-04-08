@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, Trash2, Image as ImageIcon, Save, AlertCircle } from 'lucide-react';
+import { X, Plus, Trash2, Image as ImageIcon, Save, AlertCircle, Smartphone, Monitor } from 'lucide-react';
 import { aplusService } from '../../services/aplus';
 import { useSwag } from '../../context/SwagContext';
 
@@ -9,7 +9,15 @@ const APlusSettingsModal = ({ isOpen, onClose, productId, productName }) => {
     const [contents, setContents] = useState([]);
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
-    const fileInputRef = useRef(null);
+    
+    // 📸 Upload States
+    const [desktopFile, setDesktopFile] = useState(null);
+    const [desktopPreview, setDesktopPreview] = useState(null);
+    const [mobileFile, setMobileFile] = useState(null);
+    const [mobilePreview, setMobilePreview] = useState(null);
+
+    const desktopInputRef = useRef(null);
+    const mobileInputRef = useRef(null);
 
     const loadAPlus = async () => {
         if (!productId) return;
@@ -25,35 +33,86 @@ const APlusSettingsModal = ({ isOpen, onClose, productId, productName }) => {
     };
 
     useEffect(() => {
-        if (isOpen) loadAPlus();
+        if (isOpen) {
+            loadAPlus();
+            resetUploads();
+        }
     }, [isOpen, productId]);
 
-    const handleFileUpload = async (e) => {
-        const files = Array.from(e.target.files);
-        if (files.length === 0) return;
+    const resetUploads = () => {
+        setDesktopFile(null);
+        setDesktopPreview(null);
+        setMobileFile(null);
+        setMobilePreview(null);
+        if (desktopInputRef.current) desktopInputRef.current.value = '';
+        if (mobileInputRef.current) mobileInputRef.current.value = '';
+    };
+
+    const handleFileSelect = (e, type) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const ratio = img.width / img.height;
+                // Desktop: ~16:9 (allow range) | Mobile: ~9:16 (allow range)
+                const isDesktop = type === 'desktop';
+                const isValid = isDesktop 
+                    ? (ratio > 1.2) // Horizontal
+                    : (ratio < 0.8); // Vertical
+
+                if (!isValid) {
+                    showAlert({ 
+                        title: 'Ratio Infraction', 
+                        message: `Please use a ${isDesktop ? 'Horizontal (16:9)' : 'Vertical (9:16)'} image for ${type} view.`,
+                        type: 'error' 
+                    });
+                    e.target.value = '';
+                    return;
+                }
+
+                if (isDesktop) {
+                    setDesktopFile(file);
+                    setDesktopPreview(event.target.result);
+                } else {
+                    setMobileFile(file);
+                    setMobilePreview(event.target.result);
+                }
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleSaveRow = async () => {
+        if (!desktopFile) {
+            showAlert({ title: 'Requirement Missing', message: 'Desktop media is required to create a marketing row.', type: 'error' });
+            return;
+        }
 
         setUploading(true);
         try {
             const formData = new FormData();
             formData.append('product_id', productId);
-            files.forEach(file => {
-                formData.append('media', file);
-            });
+            formData.append('media', desktopFile);
+            if (mobileFile) formData.append('mobile_media', mobileFile);
 
             await aplusService.create(formData);
             loadAPlus();
-            showAlert({ title: 'Success', message: 'A+ Content added', type: 'success' });
+            resetUploads();
+            showAlert({ title: 'Success', message: 'Responsive A+ Content added', type: 'success' });
         } catch (err) {
             console.error(err);
-            showAlert({ title: 'Upload Failed', message: 'Could not upload A+ content images', type: 'error' });
+            showAlert({ title: 'Upload Failed', message: 'Could not upload A+ content', type: 'error' });
         } finally {
             setUploading(false);
-            if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm("Delete this A+ content block?")) return;
+        if (!window.confirm("Delete this responsive A+ content block?")) return;
         try {
             await aplusService.delete(id);
             setContents(prev => prev.filter(c => c.id !== id));
@@ -70,13 +129,13 @@ const APlusSettingsModal = ({ isOpen, onClose, productId, productName }) => {
             <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                style={{ background: 'var(--bg-surface)', width: '100%', maxWidth: '900px', maxHeight: '90vh', borderRadius: '32px', border: '1px solid var(--border-ghost)', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 40px 100px rgba(0,0,0,0.5)' }}
+                style={{ background: 'var(--bg-surface)', width: '100%', maxWidth: '1000px', maxHeight: '90vh', borderRadius: '32px', border: '1px solid var(--border-ghost)', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 40px 100px rgba(0,0,0,0.5)' }}
             >
                 {/* Header */}
                 <div style={{ padding: '25px 35px', borderBottom: '1px solid var(--border-ghost)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)' }}>
                     <div>
-                        <h2 style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--text-main)', marginBottom: '4px' }}>A+ Content Manager</h2>
-                        <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>Enhance product storytelling for: <span style={{ color: 'var(--accent-primary)', fontWeight: 800 }}>{productName}</span></p>
+                        <h2 style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--text-main)', marginBottom: '4px' }}>Responsive A+ Content</h2>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>Marketing relay for: <span style={{ color: 'var(--accent-primary)', fontWeight: 800 }}>{productName}</span></p>
                     </div>
                     <button onClick={onClose} style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--bg-primary)', border: '1px solid var(--border-ghost)', color: 'var(--text-main)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <X size={20} />
@@ -85,83 +144,119 @@ const APlusSettingsModal = ({ isOpen, onClose, productId, productName }) => {
 
                 {/* Content Area */}
                 <div style={{ flex: 1, overflowY: 'auto', padding: '35px', display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                    
+                    {/* Responsive Upload Builder */}
+                    <div style={{ background: 'var(--bg-primary)', padding: '25px', borderRadius: '24px', border: '1px solid var(--border-ghost)' }}>
+                        <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <Plus size={18} color="var(--accent-primary)" /> ADD RESPONSIVE MARKETING ROW
+                        </h3>
+                        
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                            {/* Desktop Slot */}
+                            <div 
+                                onClick={() => desktopInputRef.current.click()}
+                                style={{ 
+                                    aspectRatio: '16/9', 
+                                    background: 'var(--bg-secondary)', 
+                                    borderRadius: '16px', 
+                                    border: desktopPreview ? '2px solid var(--accent-primary)' : '2px dashed var(--border-ghost)',
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                    cursor: 'pointer', overflow: 'hidden', position: 'relative'
+                                }}
+                            >
+                                {desktopPreview ? (
+                                    <img src={desktopPreview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : (
+                                    <>
+                                        <Monitor size={32} color="var(--text-dim)" style={{ marginBottom: '10px' }} />
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--text-dim)' }}>DESKTOP (16:9) *</span>
+                                    </>
+                                )}
+                                <input type="file" ref={desktopInputRef} hidden accept="image/*" onChange={(e) => handleFileSelect(e, 'desktop')} />
+                            </div>
 
-                    {/* Upload Trigger */}
-                    <div
-                        onClick={() => fileInputRef.current.click()}
-                        style={{ border: '2px dashed var(--border-ghost)', borderRadius: '20px', padding: '40px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s', background: 'rgba(255,255,255,0.02)' }}
-                        onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--accent-primary)'}
-                        onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border-ghost)'}
-                    >
-                        <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(225, 25, 25, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 15px' }}>
-                            <Plus size={30} color="var(--accent-primary)" />
+                            {/* Mobile Slot */}
+                            <div 
+                                onClick={() => mobileInputRef.current.click()}
+                                style={{ 
+                                    aspectRatio: '16/9', // UI maintain same height for grid symmetry
+                                    background: 'var(--bg-secondary)', 
+                                    borderRadius: '16px', 
+                                    border: mobilePreview ? '2px solid var(--accent-primary)' : '2px dashed var(--border-ghost)',
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                    cursor: 'pointer', overflow: 'hidden', position: 'relative'
+                                }}
+                            >
+                                {mobilePreview ? (
+                                    <img src={mobilePreview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : (
+                                    <>
+                                        <Smartphone size={32} color="var(--text-dim)" style={{ marginBottom: '10px' }} />
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--text-dim)' }}>MOBILE (9:16)</span>
+                                    </>
+                                )}
+                                <input type="file" ref={mobileInputRef} hidden accept="image/*" onChange={(e) => handleFileSelect(e, 'mobile')} />
+                            </div>
                         </div>
-                        <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '8px' }}>Add A+ Marketing Row</h3>
-                        <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>Select multiple images to create a vertical storytelling layout</p>
-                        <input type="file" ref={fileInputRef} multiple style={{ display: 'none' }} accept="image/*" onChange={handleFileUpload} />
+
+                        {(desktopFile || mobileFile) && (
+                            <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                                <button onClick={resetUploads} style={{ padding: '12px 24px', borderRadius: '12px', background: 'transparent', color: 'var(--text-dim)', border: '1px solid var(--border-ghost)', fontWeight: 800, cursor: 'pointer' }}>CANCEL</button>
+                                <button onClick={handleSaveRow} disabled={uploading} style={{ padding: '12px 30px', borderRadius: '12px', background: 'var(--accent-primary)', color: '#fff', border: 'none', fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Save size={18} /> {uploading ? 'SYNCING...' : 'SAVE MODULE'}
+                                </button>
+                            </div>
+                        )}
                     </div>
+
+                    <div style={{ height: '1px', background: 'var(--border-ghost)' }} />
 
                     {loading ? (
                         <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-dim)' }}>Syncing marketing data...</div>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-
-                            {/* Pending State Rendering */}
-                            {pendingFiles.length > 0 && (
-                                <motion.div
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    style={{ background: 'var(--bg-primary)', borderRadius: '20px', border: '1px dashed var(--accent-primary)', overflow: 'hidden' }}
-                                >
-                                    <div style={{ padding: '15px 20px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-ghost)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <span style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '1px' }}>PENDING ROW (UNSAVED)</span>
-                                        </div>
-                                        <button onClick={() => setPendingFiles([])} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '5px' }}>
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                    <div style={{ padding: '20px', display: 'flex', flexWrap: 'wrap', gap: '15px' }}>
-                                        {pendingFiles.map((file, pIdx) => (
-                                            <div key={pIdx} style={{ width: '120px', height: '120px', borderRadius: '12px', border: '1px solid var(--border-ghost)', overflow: 'hidden', position: 'relative' }}>
-                                                <img src={URL.createObjectURL(file)} alt={`Pending ${pIdx}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div style={{ padding: '15px', display: 'flex', justifyContent: 'flex-end', background: 'rgba(225,25,25,0.05)' }}>
-                                        <button onClick={handleSave} disabled={uploading} style={{ padding: '10px 24px', background: 'var(--accent-primary)', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 800, cursor: 'pointer' }}>
-                                            {uploading ? 'SAVING...' : 'SAVE PENDING ROW'}
-                                        </button>
-                                    </div>
-                                </motion.div>
-                            )}
-
                             {/* Existing Contents */}
                             {contents.map((block, idx) => (
                                 <motion.div
                                     key={block.id}
                                     initial={{ opacity: 0, x: -10 }}
                                     animate={{ opacity: 1, x: 0 }}
-                                    style={{ background: 'var(--bg-primary)', borderRadius: '20px', border: '1px solid var(--border-ghost)', overflow: 'hidden' }}
+                                    style={{ background: 'var(--bg-secondary)', borderRadius: '24px', border: '1px solid var(--border-ghost)', overflow: 'hidden' }}
                                 >
-                                    <div style={{ padding: '15px 20px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-ghost)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <span style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px' }}>ROW #{idx + 1}</span>
-                                        </div>
-                                        <button onClick={() => handleDelete(block.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '5px' }}>
+                                    <div style={{ padding: '15px 25px', borderBottom: '1px solid var(--border-ghost)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px' }}>MARKETING ROW #{idx + 1}</span>
+                                        <button onClick={() => handleDelete(block.id)} style={{ background: 'rgba(239,68,68,0.1)', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '8px', borderRadius: '8px' }}>
                                             <Trash2 size={16} />
                                         </button>
                                     </div>
-                                    <div style={{ padding: '20px', display: 'flex', flexWrap: 'wrap', gap: '15px' }}>
-                                        {block.image_paths?.map((path, pIdx) => (
-                                            <div key={pIdx} style={{ width: '120px', height: '120px', borderRadius: '12px', border: '1px solid var(--border-ghost)', overflow: 'hidden', position: 'relative' }}>
-                                                <img src={path.startsWith('http') ? path : `http://${window.location.hostname}:5000${path}`} alt={`A+ ${pIdx}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            </div>
-                                        ))}
+                                    <div style={{ padding: '20px', display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px' }}>
+                                        {/* Desktop Preview */}
+                                        <div style={{ borderRadius: '12px', border: '1px solid var(--border-ghost)', overflow: 'hidden', background: '#000' }}>
+                                            <p style={{ fontSize: '0.6rem', fontWeight: 900, background: 'rgba(0,0,0,0.5)', padding: '5px 10px', color: '#fff', width: 'fit-content' }}>DESKTOP</p>
+                                            <img 
+                                                src={block.image_paths[0].startsWith('http') ? block.image_paths[0] : `http://${window.location.hostname}:5000${block.image_paths[0]}`} 
+                                                alt="Desktop View" 
+                                                style={{ width: '100%', aspectRatio: '16/9', objectFit: 'contain' }} 
+                                            />
+                                        </div>
+                                        {/* Mobile Preview */}
+                                        <div style={{ borderRadius: '12px', border: '1px solid var(--border-ghost)', overflow: 'hidden', background: '#000' }}>
+                                            <p style={{ fontSize: '0.6rem', fontWeight: 900, background: 'rgba(0,0,0,0.5)', padding: '5px 10px', color: '#fff', width: 'fit-content' }}>MOBILE</p>
+                                            {block.mobile_media_path ? (
+                                                <img 
+                                                    src={block.mobile_media_path.startsWith('http') ? block.mobile_media_path : `http://${window.location.hostname}:5000${block.mobile_media_path}`} 
+                                                    alt="Mobile View" 
+                                                    style={{ width: '100%', aspectRatio: '9/16', objectFit: 'contain' }} 
+                                                />
+                                            ) : (
+                                                <div style={{ width: '100%', aspectRatio: '9/16', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)', fontSize: '0.7rem' }}>NO MOBILE ASSET</div>
+                                            )}
+                                        </div>
                                     </div>
                                 </motion.div>
                             ))}
-                            {contents.length === 0 && !loading && pendingFiles.length === 0 && (
+                            
+                            {contents.length === 0 && !loading && (
                                 <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-dim)', background: 'var(--bg-secondary)', borderRadius: '24px', border: '1px solid var(--border-ghost)' }}>
                                     <AlertCircle size={40} style={{ opacity: 0.2, marginBottom: '15px' }} />
                                     <p>No A+ Content Found for this Unit.</p>
@@ -173,8 +268,8 @@ const APlusSettingsModal = ({ isOpen, onClose, productId, productName }) => {
 
                 {/* Footer */}
                 <div style={{ padding: '25px 35px', background: 'var(--bg-secondary)', borderTop: '1px solid var(--border-ghost)', textAlign: 'right' }}>
-                    <button onClick={onClose} style={{ padding: '12px 30px', borderRadius: '12px', background: 'var(--bg-primary)', color: 'var(--text-main)', border: '1px solid var(--border-ghost)', fontWeight: 800, cursor: 'pointer', fontSize: '0.85rem' }}>
-                        CLOSE MANAGER
+                    <button onClick={onClose} style={{ padding: '12px 30px', borderRadius: '12px', background: 'var(--accent-primary)', color: '#fff', border: 'none', fontWeight: 900, cursor: 'pointer', fontSize: '0.85rem' }}>
+                        BACK TO INVENTORY
                     </button>
                 </div>
             </motion.div>

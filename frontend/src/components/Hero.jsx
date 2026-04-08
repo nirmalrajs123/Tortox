@@ -7,6 +7,14 @@ const Hero = () => {
     const [slides, setSlides] = useState([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth <= 768);
+        handleResize(); // Init
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     useEffect(() => {
         const fetchBanners = async () => {
@@ -21,8 +29,14 @@ const Hero = () => {
                             imageUrl = `${backendUrl}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
                         }
 
+                        let mobileUrl = banner.mobile_media_path || '';
+                        if (mobileUrl && !mobileUrl.startsWith('http')) {
+                            mobileUrl = `${backendUrl}${mobileUrl.startsWith('/') ? '' : '/'}${mobileUrl}`;
+                        }
+
                         return {
                             image: imageUrl,
+                            mobileImage: mobileUrl || imageUrl, // Fallback to desktop image
                             title: banner.banner_text || 'Premium Gaming Gear',
                             type: banner.media_type || 'image'
                         };
@@ -103,14 +117,15 @@ const Hero = () => {
                 >
                     {currentSlide.type === 'video' ? (
                         <video 
-                            src={currentSlide.image} 
+                            key={`${currentIndex}-${isMobile ? 'mobile' : 'desktop'}`} // Force re-render if breakpoint changes
+                            src={isMobile ? currentSlide.mobileImage : currentSlide.image} 
                             autoPlay muted loop playsInline
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
                     ) : (
                         <div style={{
                             width: '100%', height: '100%',
-                            background: `url("${currentSlide.image}") no-repeat center center/cover`
+                            background: `url("${isMobile ? currentSlide.mobileImage : currentSlide.image}") no-repeat center center/cover`
                         }} />
                     )}
                 </motion.div>

@@ -218,6 +218,7 @@ const initializeDatabase = async () => {
     const alterHomeBannerQuery = `
         ALTER TABLE home_banner ADD COLUMN IF NOT EXISTS banner_options JSONB DEFAULT '[]';
         ALTER TABLE home_banner ADD COLUMN IF NOT EXISTS subtitle TEXT;
+        ALTER TABLE home_banner ADD COLUMN IF NOT EXISTS mobile_media_path TEXT;
         ALTER TABLE home_banner ADD COLUMN IF NOT EXISTS description TEXT;
         ALTER TABLE home_banner ADD COLUMN IF NOT EXISTS button_text TEXT;
         ALTER TABLE home_banner ADD COLUMN IF NOT EXISTS title_prefix TEXT;
@@ -246,6 +247,7 @@ const initializeDatabase = async () => {
             );
         `;
         await pool.query(createAPlusContentsQuery);
+        await pool.query(`ALTER TABLE aplus_contents ADD COLUMN IF NOT EXISTS mobile_media_path TEXT;`);
 
         await pool.query(createVariantImagesQuery);
         await pool.query(createSpecLabelQuery); // Must exist before specifications for FK

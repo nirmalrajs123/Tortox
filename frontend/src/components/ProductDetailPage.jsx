@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useInView } from 'framer-motion';
 import { productService } from '../services/product';
 import { aplusService } from '../services/aplus';
 import {
@@ -13,7 +13,8 @@ import {
     Download,
     Search,
     FileText,
-    LayoutGrid
+    LayoutGrid,
+    X
 } from 'lucide-react';
 import Navbar from './Navbar';
 import Footer from './Footer';
@@ -67,6 +68,30 @@ const StructuredData = ({ product }) => {
     };
     return (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(json) }} />
+    );
+};
+
+// ─── Scroll Reveal Image (A+ cinematic entrance) ─────────────────────────────
+const ScrollRevealImage = ({ src, alt, delay = 0, style = {} }) => {
+    const ref = useRef(null);
+    const isInView = useInView(ref, { once: true, margin: '-80px 0px' });
+    return (
+        <motion.div
+            ref={ref}
+            initial={{ opacity: 0, scale: 0.93, filter: 'blur(8px)', y: 40 }}
+            animate={isInView
+                ? { opacity: 1, scale: 1, filter: 'blur(0px)', y: 0 }
+                : { opacity: 0, scale: 0.93, filter: 'blur(8px)', y: 40 }
+            }
+            transition={{ duration: 0.85, ease: [0.25, 0.46, 0.45, 0.94], delay }}
+            style={{ width: '100%', maxWidth: '1920px', overflow: 'hidden', ...style }}
+        >
+            <img
+                src={src}
+                alt={alt}
+                style={{ width: '100%', display: 'block', margin: 0, padding: 0, objectFit: 'cover' }}
+            />
+        </motion.div>
     );
 };
 
@@ -136,6 +161,9 @@ const ProductDetailPage = ({ usesSlug }) => {
     const [activeImage, setActiveImage] = useState(0);
     const [isAtTop, setIsAtTop] = useState(false);
     const [galleryIndex, setGalleryIndex] = useState(0);
+    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    const [selectedPreviewImage, setSelectedPreviewImage] = useState(null);
+    const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
     const sentinelRef = useRef(null);
 
     const sectionRefs = {
@@ -153,19 +181,22 @@ const ProductDetailPage = ({ usesSlug }) => {
     };
 
     useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth <= 768);
         const handleScroll = () => {
             if (sentinelRef.current) {
-                // If the top of the sentinel goes past the top of the viewport
                 const rect = sentinelRef.current.getBoundingClientRect();
                 setIsAtTop(rect.top <= 0);
             }
         };
 
+        window.addEventListener('resize', handleResize);
         window.addEventListener('scroll', handleScroll, { passive: true });
-        // Trigger initially
         handleScroll();
 
-        return () => window.removeEventListener('scroll', handleScroll);
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            window.removeEventListener('scroll', handleScroll);
+        };
     }, []);
 
     useEffect(() => {
@@ -249,11 +280,9 @@ const ProductDetailPage = ({ usesSlug }) => {
     const categoryName = (product.category_name || 'PC CASE').toUpperCase();
     const accentColor = '#ff6b00'; // darkFlash Orange
 
-    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-
     const handleDownloadAll = async () => {
         if (!allImages || allImages.length === 0) return;
-        
+
         for (let i = 0; i < allImages.length; i++) {
             const url = allImages[i];
             try {
@@ -282,7 +311,7 @@ const ProductDetailPage = ({ usesSlug }) => {
             {/* LIGHTBOX MODAL TRIGGERED BY VIEW ALL IMAGES */}
             <AnimatePresence>
                 {isLightboxOpen && (
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
@@ -296,10 +325,10 @@ const ProductDetailPage = ({ usesSlug }) => {
                         </div>
                         <div style={{ padding: '40px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px', maxWidth: '1600px', margin: '0 auto', width: '100%' }}>
                             {allImages.map((src, index) => (
-                                <motion.div 
-                                    key={index} 
-                                    initial={{ opacity: 0, y: 20 }} 
-                                    animate={{ opacity: 1, y: 0 }} 
+                                <motion.div
+                                    key={index}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: index * 0.05 }}
                                     onClick={() => { setGalleryIndex(index); setIsLightboxOpen(false); window.scrollTo({ top: document.getElementById('tortox-galleries-section').offsetTop - 100, behavior: 'smooth' }); }}
                                     style={{ background: '#000', borderRadius: '16px', overflow: 'hidden', aspectRatio: '1/1', position: 'relative', cursor: 'zoom-in', boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}
@@ -309,6 +338,66 @@ const ProductDetailPage = ({ usesSlug }) => {
                                 </motion.div>
                             ))}
                         </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* FULL SCREEN IMAGE PREVIEW MODAL */}
+            <AnimatePresence>
+                {selectedPreviewImage && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setSelectedPreviewImage(null)}
+                        style={{ 
+                            position: 'fixed', 
+                            inset: 0, 
+                            background: 'rgba(0,0,0,0.95)', 
+                            backdropFilter: 'blur(10px)', 
+                            zIndex: 200000, 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            cursor: 'zoom-out',
+                            padding: '40px'
+                        }}
+                    >
+                        <motion.button 
+                            initial={{ opacity: 0, scale: 0.5 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            style={{ 
+                                position: 'absolute', 
+                                top: '40px', 
+                                right: '40px', 
+                                background: 'rgba(255,255,255,0.1)', 
+                                border: 'none', 
+                                color: '#fff', 
+                                borderRadius: '50%', 
+                                width: '50px', 
+                                height: '50px', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center', 
+                                cursor: 'pointer'
+                            }}
+                        >
+                            <X size={24} />
+                        </motion.button>
+                        
+                        <motion.img 
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.8, opacity: 0 }}
+                            src={selectedPreviewImage} 
+                            alt="Full Preview" 
+                            style={{ 
+                                maxWidth: '90%', 
+                                maxHeight: '90%', 
+                                objectFit: 'contain', 
+                                boxShadow: '0 30px 100px rgba(0,0,0,0.5)' 
+                            }} 
+                        />
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -458,10 +547,10 @@ const ProductDetailPage = ({ usesSlug }) => {
                                 </div>
                             </div>
                         )}
-                        <motion.button 
-                            whileHover={{ scale: 1.05, background: '#e11919' }} 
-                            whileTap={{ scale: 0.95 }} 
-                            onClick={() => navigate('/contact')} 
+                        <motion.button
+                            whileHover={{ scale: 1.05, background: '#e11919' }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => navigate('/contact')}
                             style={{ marginTop: '10px', padding: '14px 40px', background: '#1d1d1f', borderRadius: '25px', display: 'inline-flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', color: '#fff', border: 'none', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', fontSize: '0.85rem', width: 'fit-content', transition: 'background 0.2s' }}
                         >
                             Shop Now
@@ -555,16 +644,23 @@ const ProductDetailPage = ({ usesSlug }) => {
             {/* ── SECTION: A+ MARKETING CAPTURES (Vertical Poster) ── */}
             {aplusContents.length > 0 && (
                 <div style={{ width: '100%', background: '#fff', borderBottom: '1px solid #f2f2f2', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    {aplusContents.map(block => (
-                        block.image_paths?.map((path, idx) => (
-                            <img
-                                key={`${block.id}-${idx}`}
-                                src={normalizePath(path)}
+                    {aplusContents.map(block => {
+                        // 🛠️ Responsive selection logic
+                        const mediaSource = (isMobile && block.mobile_media_path) 
+                            ? normalizePath(block.mobile_media_path) 
+                            : (block.image_paths?.[0] ? normalizePath(block.image_paths[0]) : null);
+
+                        if (!mediaSource) return null;
+
+                        return (
+                            <ScrollRevealImage
+                                key={block.id}
+                                src={mediaSource}
                                 alt="Marketing Detail"
-                                style={{ width: '100%', maxWidth: '1920px', display: 'block', margin: 0, padding: 0, objectFit: 'cover' }}
+                                delay={0.1}
                             />
-                        ))
-                    ))}
+                        );
+                    })}
                 </div>
             )}
 
@@ -597,15 +693,15 @@ const ProductDetailPage = ({ usesSlug }) => {
             {/* ── SECTION: GALLERIES ── */}
             <div ref={sectionRefs.Galleries} style={{ width: '100%', padding: '100px 0', borderBottom: '1px solid #f2f2f2', background: '#fff' }}>
                 <h2 style={{ fontSize: '2.5rem', fontWeight: 800, textAlign: 'center', marginBottom: '50px', color: '#1d1d1f' }}>Product Galleries</h2>
-                
+
                 <div style={{ position: 'relative', width: '100%', maxWidth: '1920px', margin: '0 auto', overflow: 'hidden' }}>
-                    <motion.div 
+                    <motion.div
                         animate={{ x: `-${Math.min(galleryIndex, Math.max(0, allImages.length - 5)) * (100 / 5)}%` }}
                         transition={{ type: 'tween', ease: 'easeOut', duration: 0.4 }}
                         style={{ display: 'flex', gap: '8px', padding: '0 8px' }}
                     >
                         {allImages.map((img, i) => (
-                            <div key={i} onClick={() => { setActiveImage(i); window.scrollTo({ top: 0, behavior: 'smooth' }); }} style={{ flex: '0 0 calc(20% - 6.4px)', aspectRatio: '1/1', background: '#0a0a0a', overflow: 'hidden', cursor: 'pointer', position: 'relative' }}>
+                            <div key={i} onClick={() => setSelectedPreviewImage(img)} style={{ flex: '0 0 calc(20% - 6.4px)', aspectRatio: '1/1', background: '#0a0a0a', overflow: 'hidden', cursor: 'pointer', position: 'relative' }}>
                                 <img src={img} alt={`Gallery ${i}`} style={{ width: '100%', height: '100%', objectFit: 'contain', opacity: 0.95, transition: 'all 0.3s' }} onMouseEnter={(e) => { e.currentTarget.style.opacity = 1; e.currentTarget.style.transform = 'scale(1.05)'; }} onMouseLeave={(e) => { e.currentTarget.style.opacity = 0.95; e.currentTarget.style.transform = 'scale(1)'; }} />
                             </div>
                         ))}

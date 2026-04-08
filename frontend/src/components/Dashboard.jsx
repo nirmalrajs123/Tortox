@@ -46,6 +46,7 @@ const Dashboard = () => {
     const [showViewModal, setShowViewModal] = useState(false);
     const [showAPlusModal, setShowAPlusModal] = useState(false);
     const [aplusProduct, setAplusProduct] = useState(null);
+    const [imagePreviewSrc, setImagePreviewSrc] = useState(null);
 
     const loadProducts = async () => {
         try {
@@ -298,7 +299,10 @@ const Dashboard = () => {
                                                                 <td style={{ padding: '20px 24px', color: 'var(--accent-primary)', fontWeight: 700, fontSize: '0.9rem' }}>#{prod.id}</td>
                                                                 <td style={{ padding: '20px 24px', fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>{prod.modal || prod.product_name || 'N/A'}</td>
                                                                 <td style={{ padding: '12px 24px' }}>
-                                                                    <div style={{ width: '50px', height: '50px', borderRadius: '8px', overflow: 'hidden', background: '#f8fafc', border: '1px solid #f1f5f9' }}>
+                                                                    <div 
+                                                                        onClick={() => prod.image && setImagePreviewSrc(prod.image)}
+                                                                        style={{ width: '50px', height: '50px', borderRadius: '8px', overflow: 'hidden', background: '#f8fafc', border: '1px solid #f1f5f9', cursor: prod.image ? 'zoom-in' : 'default' }}
+                                                                    >
                                                                         {prod.image ? (
                                                                             <img src={prod.image} alt="Main" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                                                         ) : (
@@ -307,7 +311,10 @@ const Dashboard = () => {
                                                                     </div>
                                                                 </td>
                                                                 <td style={{ padding: '12px 24px' }}>
-                                                                    <div style={{ width: '50px', height: '50px', borderRadius: '8px', overflow: 'hidden', background: '#f8fafc', border: '1px solid #f1f5f9' }}>
+                                                                    <div 
+                                                                        onClick={() => prod.hover_image && setImagePreviewSrc(prod.hover_image)}
+                                                                        style={{ width: '50px', height: '50px', borderRadius: '8px', overflow: 'hidden', background: '#f8fafc', border: '1px solid #f1f5f9', cursor: prod.hover_image ? 'zoom-in' : 'default' }}
+                                                                    >
                                                                         {prod.hover_image ? (
                                                                             <img src={prod.hover_image} alt="Hover" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                                                         ) : (
@@ -493,6 +500,80 @@ const Dashboard = () => {
                             </div>
                         </motion.div>
                     </div>
+                )}
+            </AnimatePresence>
+
+            {/* FULL SCREEN IMAGE PREVIEW MODAL */}
+            <AnimatePresence>
+                {imagePreviewSrc && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setImagePreviewSrc(null)}
+                        style={{ 
+                            position: 'fixed', 
+                            inset: 0, 
+                            background: 'rgba(0,0,0,0.92)', 
+                            backdropFilter: 'blur(15px)', 
+                            zIndex: 200000, 
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            cursor: 'zoom-out',
+                            padding: '40px'
+                        }}
+                    >
+                        <motion.button 
+                            initial={{ opacity: 0, scale: 0.5 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            style={{ 
+                                position: 'absolute', 
+                                top: '40px', 
+                                right: '40px', 
+                                background: 'rgba(255,255,255,0.1)', 
+                                border: '1px solid rgba(255,255,255,0.2)', 
+                                color: '#fff', 
+                                borderRadius: '50%', 
+                                width: '54px', 
+                                height: '54px', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center', 
+                                cursor: 'pointer',
+                                backdropFilter: 'blur(10px)',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.8)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                        >
+                            <X size={24} />
+                        </motion.button>
+                        
+                        <motion.img 
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            src={imagePreviewSrc} 
+                            alt="Full Preview" 
+                            style={{ 
+                                maxWidth: '90%', 
+                                maxHeight: '85%', 
+                                objectFit: 'contain', 
+                                borderRadius: '12px',
+                                boxShadow: '0 40px 120px rgba(0,0,0,0.6)' 
+                            }} 
+                        />
+
+                        <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            style={{ marginTop: '24px', color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem', fontWeight: 600, letterSpacing: '1px' }}
+                        >
+                            CLICK ANYWHERE TO CLOSE
+                        </motion.div>
+                    </motion.div>
                 )}
             </AnimatePresence>
         </div>
