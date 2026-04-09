@@ -9,7 +9,7 @@ const APlusSettingsModal = ({ isOpen, onClose, productId, productName }) => {
     const [contents, setContents] = useState([]);
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
-    
+
     // 📸 Upload States
     const [desktopFile, setDesktopFile] = useState(null);
     const [desktopPreview, setDesktopPreview] = useState(null);
@@ -52,22 +52,35 @@ const APlusSettingsModal = ({ isOpen, onClose, productId, productName }) => {
         const file = e.target.files[0];
         if (!file) return;
 
+        const isVideo = file.type.startsWith('video/');
+
+        if (isVideo) {
+            const url = URL.createObjectURL(file);
+            if (type === 'desktop') {
+                setDesktopFile(file);
+                setDesktopPreview(url);
+            } else {
+                setMobileFile(file);
+                setMobilePreview(url);
+            }
+            return;
+        }
+
         const reader = new FileReader();
         reader.onload = (event) => {
             const img = new Image();
             img.onload = () => {
                 const ratio = img.width / img.height;
-                // Desktop: ~16:9 (allow range) | Mobile: ~9:16 (allow range)
                 const isDesktop = type === 'desktop';
-                const isValid = isDesktop 
+                const isValid = isDesktop
                     ? (ratio > 1.2) // Horizontal
                     : (ratio < 0.8); // Vertical
 
                 if (!isValid) {
-                    showAlert({ 
-                        title: 'Ratio Infraction', 
+                    showAlert({
+                        title: 'Ratio Infraction',
                         message: `Please use a ${isDesktop ? 'Horizontal (16:9)' : 'Vertical (9:16)'} image for ${type} view.`,
-                        type: 'error' 
+                        type: 'error'
                     });
                     e.target.value = '';
                     return;
@@ -144,58 +157,74 @@ const APlusSettingsModal = ({ isOpen, onClose, productId, productName }) => {
 
                 {/* Content Area */}
                 <div style={{ flex: 1, overflowY: 'auto', padding: '35px', display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                    
+
                     {/* Responsive Upload Builder */}
                     <div style={{ background: 'var(--bg-primary)', padding: '25px', borderRadius: '24px', border: '1px solid var(--border-ghost)' }}>
                         <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <Plus size={18} color="var(--accent-primary)" /> ADD RESPONSIVE MARKETING ROW
                         </h3>
-                        
+
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                             {/* Desktop Slot */}
-                            <div 
+                            <div
                                 onClick={() => desktopInputRef.current.click()}
-                                style={{ 
-                                    aspectRatio: '16/9', 
-                                    background: 'var(--bg-secondary)', 
-                                    borderRadius: '16px', 
+                                style={{
+                                    aspectRatio: '16/9',
+                                    background: 'var(--bg-secondary)',
+                                    borderRadius: '16px',
                                     border: desktopPreview ? '2px solid var(--accent-primary)' : '2px dashed var(--border-ghost)',
                                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                                    cursor: 'pointer', overflow: 'hidden', position: 'relative'
+                                    cursor: 'pointer', overflow: 'hidden', position: 'relative',
+                                    transition: 'all 0.3s'
                                 }}
+                                onMouseEnter={(e) => { if (!desktopPreview) e.currentTarget.style.borderColor = 'var(--accent-primary)'; }}
+                                onMouseLeave={(e) => { if (!desktopPreview) e.currentTarget.style.borderColor = 'var(--border-ghost)'; }}
                             >
                                 {desktopPreview ? (
-                                    <img src={desktopPreview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    desktopFile?.type.startsWith('video/') || desktopPreview.includes('video-') ? (
+                                        <video src={desktopPreview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} autoPlay muted loop />
+                                    ) : (
+                                        <img src={desktopPreview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    )
                                 ) : (
-                                    <>
-                                        <Monitor size={32} color="var(--text-dim)" style={{ marginBottom: '10px' }} />
-                                        <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--text-dim)' }}>DESKTOP (16:9) *</span>
-                                    </>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <Plus size={32} color="var(--text-dim)" style={{ marginBottom: '12px', opacity: 0.6 }} />
+                                        <p style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 4px' }}>Click to select media</p>
+                                        <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', margin: 0 }}>Recommended: 1920x1080 (16:9)</p>
+                                    </div>
                                 )}
-                                <input type="file" ref={desktopInputRef} hidden accept="image/*" onChange={(e) => handleFileSelect(e, 'desktop')} />
+                                <input type="file" ref={desktopInputRef} hidden accept="image/*,video/*" onChange={(e) => handleFileSelect(e, 'desktop')} />
                             </div>
 
                             {/* Mobile Slot */}
-                            <div 
+                            <div
                                 onClick={() => mobileInputRef.current.click()}
-                                style={{ 
-                                    aspectRatio: '16/9', // UI maintain same height for grid symmetry
-                                    background: 'var(--bg-secondary)', 
-                                    borderRadius: '16px', 
+                                style={{
+                                    aspectRatio: '16/9',
+                                    background: 'var(--bg-secondary)',
+                                    borderRadius: '16px',
                                     border: mobilePreview ? '2px solid var(--accent-primary)' : '2px dashed var(--border-ghost)',
                                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                                    cursor: 'pointer', overflow: 'hidden', position: 'relative'
+                                    cursor: 'pointer', overflow: 'hidden', position: 'relative',
+                                    transition: 'all 0.3s'
                                 }}
+                                onMouseEnter={(e) => { if (!mobilePreview) e.currentTarget.style.borderColor = 'var(--accent-primary)'; }}
+                                onMouseLeave={(e) => { if (!mobilePreview) e.currentTarget.style.borderColor = 'var(--border-ghost)'; }}
                             >
                                 {mobilePreview ? (
-                                    <img src={mobilePreview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    mobileFile?.type.startsWith('video/') || mobilePreview.includes('video-') ? (
+                                        <video src={mobilePreview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} autoPlay muted loop />
+                                    ) : (
+                                        <img src={mobilePreview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    )
                                 ) : (
-                                    <>
-                                        <Smartphone size={32} color="var(--text-dim)" style={{ marginBottom: '10px' }} />
-                                        <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--text-dim)' }}>MOBILE (9:16)</span>
-                                    </>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <Smartphone size={32} color="var(--text-dim)" style={{ marginBottom: '12px', opacity: 0.6 }} />
+                                        <p style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 4px' }}>Click to select media</p>
+                                        <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', margin: 0 }}>Recommended: 1080x1920 (9:16)</p>
+                                    </div>
                                 )}
-                                <input type="file" ref={mobileInputRef} hidden accept="image/*" onChange={(e) => handleFileSelect(e, 'mobile')} />
+                                <input type="file" ref={mobileInputRef} hidden accept="image/*,video/*" onChange={(e) => handleFileSelect(e, 'mobile')} />
                             </div>
                         </div>
 
@@ -233,20 +262,28 @@ const APlusSettingsModal = ({ isOpen, onClose, productId, productName }) => {
                                         {/* Desktop Preview */}
                                         <div style={{ borderRadius: '12px', border: '1px solid var(--border-ghost)', overflow: 'hidden', background: '#000' }}>
                                             <p style={{ fontSize: '0.6rem', fontWeight: 900, background: 'rgba(0,0,0,0.5)', padding: '5px 10px', color: '#fff', width: 'fit-content' }}>DESKTOP</p>
-                                            <img 
-                                                src={block.image_paths[0].startsWith('http') ? block.image_paths[0] : `http://${window.location.hostname}:5000${block.image_paths[0]}`} 
-                                                alt="Desktop View" 
-                                                style={{ width: '100%', aspectRatio: '16/9', objectFit: 'contain' }} 
-                                            />
+                                            {block.image_paths[0].match(/\.(mp4|webm|ogg)$/i) ? (
+                                                <video
+                                                    src={block.image_paths[0].startsWith('http') ? block.image_paths[0] : `http://${window.location.hostname}:5000${block.image_paths[0]}`}
+                                                    style={{ width: '100%', aspectRatio: '16/9', objectFit: 'contain' }}
+                                                    autoPlay muted loop
+                                                />
+                                            ) : (
+                                                <img
+                                                    src={block.image_paths[0].startsWith('http') ? block.image_paths[0] : `http://${window.location.hostname}:5000${block.image_paths[0]}`}
+                                                    alt="Desktop View"
+                                                    style={{ width: '100%', aspectRatio: '16/9', objectFit: 'contain' }}
+                                                />
+                                            )}
                                         </div>
                                         {/* Mobile Preview */}
                                         <div style={{ borderRadius: '12px', border: '1px solid var(--border-ghost)', overflow: 'hidden', background: '#000' }}>
                                             <p style={{ fontSize: '0.6rem', fontWeight: 900, background: 'rgba(0,0,0,0.5)', padding: '5px 10px', color: '#fff', width: 'fit-content' }}>MOBILE</p>
                                             {block.mobile_media_path ? (
-                                                <img 
-                                                    src={block.mobile_media_path.startsWith('http') ? block.mobile_media_path : `http://${window.location.hostname}:5000${block.mobile_media_path}`} 
-                                                    alt="Mobile View" 
-                                                    style={{ width: '100%', aspectRatio: '9/16', objectFit: 'contain' }} 
+                                                <img
+                                                    src={block.mobile_media_path.startsWith('http') ? block.mobile_media_path : `http://${window.location.hostname}:5000${block.mobile_media_path}`}
+                                                    alt="Mobile View"
+                                                    style={{ width: '100%', aspectRatio: '9/16', objectFit: 'contain' }}
                                                 />
                                             ) : (
                                                 <div style={{ width: '100%', aspectRatio: '9/16', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)', fontSize: '0.7rem' }}>NO MOBILE ASSET</div>
@@ -255,7 +292,7 @@ const APlusSettingsModal = ({ isOpen, onClose, productId, productName }) => {
                                     </div>
                                 </motion.div>
                             ))}
-                            
+
                             {contents.length === 0 && !loading && (
                                 <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-dim)', background: 'var(--bg-secondary)', borderRadius: '24px', border: '1px solid var(--border-ghost)' }}>
                                     <AlertCircle size={40} style={{ opacity: 0.2, marginBottom: '15px' }} />

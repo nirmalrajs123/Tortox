@@ -9,6 +9,7 @@ import Dashboard from './components/Dashboard';
 import Footer from './components/Footer';
 import ProductListPage from './components/ProductListPage';
 import ProductDetailPage from './components/ProductDetailPage';
+import ContactPage from './components/ContactPage';
 
 import CategoryGrid from './components/CategoryGrid';
 import LatestGear from './components/LatestGear';
@@ -56,6 +57,9 @@ function App() {
           {/* Product Detail Page - by ID (legacy) and by slug (SEO) */}
           <Route path="/product/:id" element={<ProductDetailPage />} />
           <Route path="/products/:slug" element={<ProductDetailPage usesSlug />} />
+
+          {/* Contact Page */}
+          <Route path="/contact" element={<ContactPage />} />
         </Routes>
 
       </div>

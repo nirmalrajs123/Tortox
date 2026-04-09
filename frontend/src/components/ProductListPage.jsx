@@ -101,7 +101,7 @@ const ProductListPage = () => {
             <main style={{ maxWidth: '1600px', margin: '0 auto', width: '100%', padding: '20px 20px 100px 20px', display: 'flex', gap: '60px', boxSizing: 'border-box' }}>
 
                 {/* 📂 SIDEBAR FILTERS (darkFlash style) */}
-                <aside style={{ width: '280px', flexShrink: 0, position: 'sticky', top: '100px', height: 'calc(100vh - 140px)', paddingRight: '20px', overflowY: 'auto' }}>
+                <aside style={{ width: '320px', flexShrink: 0, position: 'sticky', top: '100px', height: 'calc(100vh - 140px)', paddingRight: '20px', overflowY: 'auto' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '40px', paddingBottom: '15px', borderBottom: '1px solid #1d1d1f' }}>
                         <h2 style={{ fontSize: '1.2rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>Filter</h2>
                         <Trash2 size={16} color="#999" style={{ cursor: 'pointer' }} onClick={resetFilters} />
@@ -112,16 +112,16 @@ const ProductListPage = () => {
                             <h3 style={{ fontSize: '0.9rem', fontWeight: 800, marginBottom: '20px', color: '#1d1d1f', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
                                 {group.filter_label}
                             </h3>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px 15px' }}>
                                 {group.values.map(val => (
-                                    <label key={val.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.95rem', color: '#333', cursor: 'pointer', fontWeight: 500 }}>
+                                    <label key={val.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '0.8rem', color: '#333', cursor: 'pointer', fontWeight: 600, lineHeight: '1.2' }}>
                                         <input
                                             type="checkbox"
                                             checked={(selectedFilters[group.id] || []).includes(val.filter_value)}
                                             onChange={() => toggleFilter(group.id, val.filter_value)}
-                                            style={checkboxStyle}
+                                            style={{ ...checkboxStyle, marginTop: '2px' }}
                                         />
-                                        <span>{val.filter_value}</span>
+                                        <span style={{ wordBreak: 'break-word' }}>{val.filter_value}</span>
                                     </label>
                                 ))}
                             </div>

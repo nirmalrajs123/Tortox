@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { motion, AnimatePresence, useInView } from 'framer-motion';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { motion, AnimatePresence, useInView, useScroll, useTransform } from 'framer-motion';
 import { productService } from '../services/product';
 import { aplusService } from '../services/aplus';
 import {
@@ -18,6 +20,10 @@ import {
 } from 'lucide-react';
 import Navbar from './Navbar';
 import Footer from './Footer';
+import ScrollVideoSection from './ScrollVideoSection';
+import TortoxLogo from './TortoxLogo';
+
+gsap.registerPlugin(ScrollTrigger);
 
 // ─── SEO Head Manager ────────────────────────────────────────────────────────
 const useSEO = ({ title, description, image, url, category }) => {
@@ -75,16 +81,25 @@ const StructuredData = ({ product }) => {
 const ScrollRevealImage = ({ src, alt, delay = 0, style = {} }) => {
     const ref = useRef(null);
     const isInView = useInView(ref, { once: true, margin: '-80px 0px' });
+    const { scrollYProgress } = useScroll({
+        target: ref,
+        offset: ["start end", "end start"]
+    });
+
+    const scale = useTransform(scrollYProgress, [0, 0.5, 1], [0.95, 1.05, 1]);
+    const opacity = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0, 1, 1, 0]);
+
     return (
         <motion.div
             ref={ref}
-            initial={{ opacity: 0, scale: 0.93, filter: 'blur(8px)', y: 40 }}
-            animate={isInView
-                ? { opacity: 1, scale: 1, filter: 'blur(0px)', y: 0 }
-                : { opacity: 0, scale: 0.93, filter: 'blur(8px)', y: 40 }
-            }
-            transition={{ duration: 0.85, ease: [0.25, 0.46, 0.45, 0.94], delay }}
-            style={{ width: '100%', maxWidth: '1920px', overflow: 'hidden', ...style }}
+            style={{ 
+                width: '100%', 
+                maxWidth: '1920px', 
+                overflow: 'hidden', 
+                scale,
+                opacity,
+                ...style 
+            }}
         >
             <img
                 src={src}
@@ -130,7 +145,7 @@ const ImageMagnifier = ({ src, alt }) => {
                     scale: isHovering ? zoomLevel : 1,
                     transformOrigin: `${mousePos.x}% ${mousePos.y}%`
                 }}
-                transition={{ type: 'tween', ease: 'easeOut', duration: 0.2 }}
+                transition={{ type: 'spring', stiffness: 100, damping: 20, mass: 0.5 }}
                 style={{
                     width: '100%',
                     height: '100%',
@@ -165,6 +180,7 @@ const ProductDetailPage = ({ usesSlug }) => {
     const [selectedPreviewImage, setSelectedPreviewImage] = useState(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
     const sentinelRef = useRef(null);
+    const galleryContainerRef = useRef(null);
 
     const sectionRefs = {
         View: useRef(null),
@@ -175,29 +191,60 @@ const ProductDetailPage = ({ usesSlug }) => {
         Downloadables: useRef(null)
     };
 
+    const normalizePath = (path) => {
+        if (!path) return '';
+        if (path.startsWith('http')) return path;
+        return `http://${window.location.hostname}:5000${path.startsWith('/') ? '' : '/'}${path.trim()}`;
+    };
+
+    const currentVariant = (product && activeVariantIndex >= 0) ? product.variants?.[activeVariantIndex] : null;
+    const allImages = product ? [
+        ...(currentVariant ? (currentVariant.previews || []) : [product.image, ...(product.product_images?.map(img => img.image_path) || [])].filter(Boolean)),
+        product.desktop_banner,
+        product.mobile_banner
+    ].filter(Boolean).map(normalizePath) : [];
+    const specs = currentVariant ? (currentVariant.specs || []) : (product ? (Array.isArray(product.specifications) ? product.specifications : []) : []);
+    const features = currentVariant ? (currentVariant.features || []) : (product ? (Array.isArray(product.featuresList) ? product.featuresList : []) : []);
+
     const scrollToSection = (tab) => {
         setActiveTab(tab);
-        sectionRefs[tab].current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const target = tab === 'product' ? 'View' : tab;
+        sectionRefs[target].current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth <= 768);
-        const handleScroll = () => {
-            if (sentinelRef.current) {
-                const rect = sentinelRef.current.getBoundingClientRect();
-                setIsAtTop(rect.top <= 0);
-            }
-        };
+        
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                setIsAtTop(!entry.isIntersecting);
+            },
+            { threshold: 0 }
+        );
+
+        if (sentinelRef.current) {
+            observer.observe(sentinelRef.current);
+        }
 
         window.addEventListener('resize', handleResize);
-        window.addEventListener('scroll', handleScroll, { passive: true });
-        handleScroll();
 
         return () => {
             window.removeEventListener('resize', handleResize);
-            window.removeEventListener('scroll', handleScroll);
+            if (sentinelRef.current) {
+                observer.unobserve(sentinelRef.current);
+            }
         };
     }, []);
+
+    useEffect(() => {
+        if (galleryContainerRef.current) {
+            gsap.to(galleryContainerRef.current, {
+                x: `-${Math.min(galleryIndex, Math.max(0, allImages.length - 5)) * (100 / 5)}%`,
+                duration: 0.6,
+                ease: "power2.out"
+            });
+        }
+    }, [galleryIndex, allImages.length]);
 
     useEffect(() => {
         const fetchProduct = async () => {
@@ -260,21 +307,6 @@ const ProductDetailPage = ({ usesSlug }) => {
             </div>
         );
     }
-
-    const normalizePath = (path) => {
-        if (!path) return '';
-        if (path.startsWith('http')) return path;
-        return `http://${window.location.hostname}:5000${path.startsWith('/') ? '' : '/'}${path.trim()}`;
-    };
-
-    const currentVariant = activeVariantIndex >= 0 ? product.variants?.[activeVariantIndex] : null;
-    const allImages = [
-        ...(currentVariant ? (currentVariant.previews || []) : [product.image, ...(product.product_images?.map(img => img.image_path) || [])].filter(Boolean)),
-        product.desktop_banner,
-        product.mobile_banner
-    ].filter(Boolean).map(normalizePath);
-    const specs = currentVariant ? (currentVariant.specs || []) : (Array.isArray(product.specifications) ? product.specifications : []);
-    const features = currentVariant ? (currentVariant.features || []) : (Array.isArray(product.featuresList) ? product.featuresList : []);
 
     const pageTitle = product.product_name || product.modal;
     const categoryName = (product.category_name || 'PC CASE').toUpperCase();
@@ -632,14 +664,34 @@ const ProductDetailPage = ({ usesSlug }) => {
                 </AnimatePresence>
             </div>
 
-            {/* ── SECTION: VIEWS (Perspectives) ── */}
             <div ref={sectionRefs.Views} style={{ maxWidth: '1440px', margin: '0 auto', padding: '100px 80px', borderBottom: '1px solid #f2f2f2' }}>
                 <div style={{ textAlign: 'center', marginBottom: '80px' }}>
                     <h2 className="tortox-heading" style={{ fontSize: '3.5rem', fontWeight: 900, marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '-1px' }}>Studio Perspectives</h2>
                     <p style={{ fontSize: '1.2rem', color: '#86868b' }}>Every detail captured from our engineering desk to your screen.</p>
                 </div>
 
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '30px' }}>
+                    {allImages.slice(0, 3).map((img, i) => (
+                        <motion.div
+                            key={i}
+                            initial={{ opacity: 0, y: 30 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.8, delay: i * 0.2 }}
+                            viewport={{ once: true }}
+                            style={{ borderRadius: '24px', overflow: 'hidden', background: '#f5f5f7' }}
+                        >
+                            <img src={img} alt={`Perspective ${i}`} style={{ width: '100%', height: '400px', objectFit: 'contain' }} />
+                        </motion.div>
+                    ))}
+                </div>
             </div>
+            
+            {/* ── SECTION: CINEMATIC SCROLL REVEAL ── */}
+            <ScrollVideoSection 
+                src="https://assets.mixkit.co/videos/preview/mixkit-futuristic-computer-components-and-lights-42512-large.mp4"
+                title={`${product?.product_name || "Premium Hardware"}`}
+                description={`Engineered for high-performance computing. Experience the future of industrial design with the ${product?.product_name || "Tortox Series"}. Optimized airflow, modular flexibility, and signature Tortox aesthetics.`}
+            />
 
             {/* ── SECTION: A+ MARKETING CAPTURES (Vertical Poster) ── */}
             {aplusContents.length > 0 && (
@@ -653,12 +705,21 @@ const ProductDetailPage = ({ usesSlug }) => {
                         if (!mediaSource) return null;
 
                         return (
-                            <ScrollRevealImage
-                                key={block.id}
-                                src={mediaSource}
-                                alt="Marketing Detail"
-                                delay={0.1}
-                            />
+                            <div key={block.id} style={{ width: '100%' }}>
+                                {mediaSource.match(/\.(mp4|webm|ogg)$/i) ? (
+                                    <ScrollVideoSection 
+                                        src={mediaSource}
+                                        title={block.title || product?.product_name || "Premium Series"}
+                                        description={block.description || "Cinematic marketing reveal."}
+                                    />
+                                ) : (
+                                    <ScrollRevealImage
+                                        src={mediaSource}
+                                        alt="Marketing Detail"
+                                        delay={0.1}
+                                    />
+                                )}
+                            </div>
                         );
                     })}
                 </div>
@@ -704,9 +765,8 @@ const ProductDetailPage = ({ usesSlug }) => {
                 <h2 className="tortox-heading" style={{ display: 'block', fontSize: '3.5rem', fontWeight: 900, textAlign: 'center', marginBottom: '50px', color: '#1d1d1f', textTransform: 'uppercase', letterSpacing: '-1px' }}>Product Galleries</h2>
 
                 <div style={{ position: 'relative', width: '100%', maxWidth: '1920px', margin: '0 auto', overflow: 'hidden' }}>
-                    <motion.div
-                        animate={{ x: `-${Math.min(galleryIndex, Math.max(0, allImages.length - 5)) * (100 / 5)}%` }}
-                        transition={{ type: 'tween', ease: 'easeOut', duration: 0.4 }}
+                    <div
+                        ref={galleryContainerRef}
                         style={{ display: 'flex', gap: '8px', padding: '0 8px' }}
                     >
                         {allImages.map((img, i) => (
@@ -757,7 +817,7 @@ const ProductDetailPage = ({ usesSlug }) => {
                                 </motion.button>
                             </div>
                         ))}
-                    </motion.div>
+                    </div>
 
                     {galleryIndex > 0 && (
                         <motion.button 

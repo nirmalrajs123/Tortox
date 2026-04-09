@@ -37,7 +37,7 @@ const Navbar = ({ toggleTheme, theme = 'light', fixed = true }) => {
         { title: 'About', items: [{ name: 'Company Profile' }, { name: 'News & Events' }, { name: 'Quality & Design' }] },
         { title: 'Community', items: [{ name: 'User Forums' }, { name: 'Wallpaper' }, { name: 'Newsletter' }] },
         { title: 'Support', items: [{ name: 'Downloads' }, { name: 'Warranty RMA' }, { name: 'Tech Help' }] },
-        { title: 'Contact', items: [{ name: 'Global Offices' }, { name: 'Business Support' }] }
+        { title: 'Contact', path: '/contact' }
     ];
 
     return (
@@ -74,6 +74,12 @@ const Navbar = ({ toggleTheme, theme = 'light', fixed = true }) => {
                     >
                         <motion.div
                             whileHover={{ y: -1 }}
+                            onClick={() => {
+                                if (item.path) {
+                                    navigate(item.path);
+                                    setHoveredItem(null);
+                                }
+                            }}
                             style={{
                                 display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer',
                                 color: hoveredItem === item.title ? 'var(--accent-primary)' : 'var(--text-main)',
@@ -81,12 +87,14 @@ const Navbar = ({ toggleTheme, theme = 'light', fixed = true }) => {
                             }}
                         >
                             {item.title}
-                            <motion.div
-                                animate={{ rotate: hoveredItem === item.title ? 180 : 0, color: hoveredItem === item.title ? 'var(--accent-primary)' : 'currentColor' }}
-                                transition={{ duration: 0.2 }}
-                            >
-                                <ChevronDown size={14} style={{ opacity: 0.7 }} />
-                            </motion.div>
+                            {item.items && (
+                                <motion.div
+                                    animate={{ rotate: hoveredItem === item.title ? 180 : 0, color: hoveredItem === item.title ? 'var(--accent-primary)' : 'currentColor' }}
+                                    transition={{ duration: 0.2 }}
+                                >
+                                    <ChevronDown size={14} style={{ opacity: 0.7 }} />
+                                </motion.div>
+                            )}
                         </motion.div>
 
                         <AnimatePresence>
